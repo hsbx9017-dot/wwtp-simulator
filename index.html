@@ -1,0 +1,3143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>污水厂 A²/O 工艺模拟器 · 10 万 m³/d</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#eef2f7; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+  --teal:#0d9488; --blue:#2563eb; --amber:#d97706; --red:#dc2626; --green:#16a34a;
+  --navy:#0b2b3c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  font-size:14px; line-height:1.5;
+}
+h1,h2,h3,p{margin:0}
+button{font-family:inherit;cursor:pointer}
+#errbar{display:none;background:#7f1d1d;color:#fff;padding:8px 16px;font-size:13px}
+
+/* ---------- 顶栏 ---------- */
+.top{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  padding:14px 22px;background:linear-gradient(120deg,#0b2b3c 0%,#12455c 55%,#0f5b63 100%);
+  color:#fff;box-shadow:0 2px 14px rgba(11,43,60,.25);
+}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{
+  width:46px;height:46px;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(150deg,#22d3ee,#0d9488);color:#04222b;font-weight:800;font-size:16px;
+  box-shadow:0 4px 14px rgba(34,211,238,.35);
+}
+.brand h1{font-size:19px;font-weight:700;letter-spacing:.5px}
+.brand p{font-size:12px;color:#9fc6d4;margin-top:2px}
+.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.scen{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);padding:5px 10px;border-radius:10px}
+.scen label{font-size:12px;color:#a9cbd8}
+.scen select{
+  background:rgba(255,255,255,.95);border:none;border-radius:7px;padding:6px 8px;font-size:13px;
+  color:#0b2b3c;font-weight:600;max-width:250px;
+}
+.btn{
+  border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#eaf6fa;
+  padding:7px 12px;border-radius:9px;font-size:13px;transition:.15s;
+}
+.btn:hover{background:rgba(255,255,255,.2)}
+.btn.primary{background:linear-gradient(180deg,#14b8a6,#0d9488);border-color:#0f766e;color:#fff;font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--muted);width:100%;margin-top:12px}
+.btn.ghost:hover{color:var(--ink);border-color:#cbd5e1}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;padding:14px 22px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;position:relative;overflow:hidden}
+.kpi .kt{font-size:11.5px;color:var(--muted);letter-spacing:.3px}
+.kpi .kv{display:flex;align-items:baseline;gap:4px;margin-top:3px}
+.kpi .kv b{font-size:22px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.kpi .kv span{font-size:10.5px;color:#94a3b8}
+.kpi .kbar{height:3px;background:#eef2f7;border-radius:2px;margin-top:8px;overflow:hidden}
+.kpi .kbar i{display:block;height:100%;width:3%;border-radius:2px;transition:width .25s}
+.i-ok,.r-ok{background:linear-gradient(90deg,#34d399,#10b981)}
+.r-warn{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.r-bad{background:linear-gradient(90deg,#f87171,#dc2626)}
+#kpi-pass .kv b{font-size:17px}
+#kpi-pass.ok{background:linear-gradient(140deg,#ecfdf5,#fff);border-color:#a7f3d0}
+#kpi-pass.ok .kv b{color:#047857}
+#kpi-pass.bad{background:linear-gradient(140deg,#fef2f2,#fff);border-color:#fecaca}
+#kpi-pass.bad .kv b{color:#b91c1c}
+
+/* ---------- 提示条 ---------- */
+.alerts{display:flex;gap:8px;flex-wrap:wrap;padding:10px 22px 0}
+.alert{font-size:12.5px;padding:6px 11px;border-radius:8px;border:1px solid}
+.alert.bad{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.alert.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.alert.ok{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+
+/* ---------- 主区 ---------- */
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 396px;gap:14px;padding:12px 22px 40px;align-items:start}
+.colmain{min-width:0;display:flex;flex-direction:column;gap:14px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line)}
+.card-head h2{font-size:14px;font-weight:700}
+.card-head .hint{font-size:11.5px;color:#94a3b8}
+.diagram-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.diagram{padding:6px 8px 0;background:
+  radial-gradient(circle at 20% 0%,rgba(13,148,136,.05),transparent 45%),
+  radial-gradient(circle at 85% 100%,rgba(37,99,235,.05),transparent 45%),#fbfdff;}
+.diagram svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:8px 16px 12px;font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:22px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+
+/* ---------- SVG ---------- */
+.pipe{fill:none;stroke:#dde6ef;stroke-width:7;stroke-linejoin:round;stroke-linecap:round}
+.flow{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:.5 13;animation:flow 1.5s linear infinite}
+.flow.w{stroke:#3fb6ee}
+.flow.s{stroke:#f59e0b;animation-duration:3.2s}
+.flow.r{stroke:#fbbf24;animation-duration:2.4s}
+.flow.c{stroke:#a78bfa;animation-duration:2.6s}
+@keyframes flow{to{stroke-dashoffset:-13.5}}
+.plabel{fill:#94a3b8;font-size:11px;font-family:inherit}
+.node{cursor:pointer}
+.node .card{fill:#fff;stroke:#dbe3ec;stroke-width:1;filter:drop-shadow(0 1px 2px rgba(15,23,42,.06));transition:.15s}
+.node:hover .card{stroke:#5eead4;filter:drop-shadow(0 4px 10px rgba(13,148,136,.18))}
+.node.sel .card{stroke:#0d9488;stroke-width:2.2;filter:drop-shadow(0 4px 12px rgba(13,148,136,.25))}
+.node .bar{opacity:.9}
+.node .nt{fill:#0f172a;font-size:13px;font-weight:700;text-anchor:middle;font-family:inherit}
+.node .nl{fill:#64748b;font-size:11.5px;text-anchor:middle;font-family:inherit}
+.node.pill .card{fill:#0b2b3c;stroke:#0b2b3c}
+.node.pill .nt{fill:#fff;font-size:12px}
+.node.pill .nl{fill:#8fd3e8;font-size:10.5px}
+.node.pill.sel .card{stroke:#22d3ee;stroke-width:2.5}
+.node .st{stroke:#fff;stroke-width:1.6}
+.node .st.ok{fill:#22c55e}
+.node .st.warn{fill:#f59e0b}
+.node .st.bad{fill:#ef4444}
+.dose rect{fill:#f5f3ff;stroke:#ddd6fe;stroke-width:1;stroke-dasharray:4 3}
+.dose text{fill:#7c3aed;font-size:10.5px;text-anchor:middle;font-family:inherit}
+
+/* ---------- 参数面板 ---------- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;max-height:min(880px,calc(100vh - 110px));overflow:auto;position:sticky;top:12px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.panel::-webkit-scrollbar{width:8px}
+.panel::-webkit-scrollbar-thumb{background:#dbe3ec;border-radius:4px}
+.ph{border-bottom:1px dashed var(--line);padding-bottom:12px;margin-bottom:12px}
+.pcat{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;background:color-mix(in srgb,var(--c) 12%,#fff);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 25%,#fff);font-weight:600}
+.ph h2{font-size:17px;margin-top:8px;font-weight:700}
+.ph p{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.65}
+.reads{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:14px}
+.rt{font-size:11px;color:#94a3b8;margin-bottom:8px;letter-spacing:.5px}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.rcell{min-width:0}
+.rk{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rv span{font-size:10px;font-weight:400;color:#94a3b8;margin-left:3px}
+.pgroup{margin-bottom:14px}
+.pgt{font-size:11px;color:#94a3b8;letter-spacing:1px;margin-bottom:8px;font-weight:600}
+.prow{margin-bottom:13px}
+.ptop{display:flex;align-items:baseline;gap:6px}
+.plabel{font-size:12.5px;color:#334155;flex:1}
+.pval{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--teal)}
+.punit{font-size:10.5px;color:#94a3b8;min-width:44px;text-align:right}
+.prange{width:100%;margin:6px 0 0;accent-color:#0d9488;height:4px}
+.phint{font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.5}
+.pbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:12.5px;margin-top:6px;color:var(--muted)}
+.pbtn.on{background:#ecfdf5;border-color:#a7f3d0;color:#047857;font-weight:600}
+
+/* ---------- 设备卡片 ---------- */
+.eqsec{border-top:1px dashed var(--line);padding-top:12px;margin-top:4px}
+.eqcard{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:#fbfdff}
+.eqh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.eqn{font-size:12.5px;font-weight:600;color:#1e293b}
+.eqc{font-size:10.5px;color:var(--muted);background:#eef2f7;padding:1px 8px;border-radius:20px;white-space:nowrap}
+.eqline{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:6px}
+.eqline b{color:#334155;font-weight:600;font-variant-numeric:tabular-nums}
+.eqbar{height:4px;background:#eef2f7;border-radius:3px;margin:5px 0 3px;overflow:hidden}
+.eqbar i{display:block;height:100%;border-radius:3px;background:#10b981;transition:width .2s}
+.eqbar i.r-warn{background:#f59e0b}
+.eqbar i.r-bad{background:#ef4444}
+.eqfoot{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted)}
+.eqfields{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:9px}
+.eqf{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--muted)}
+.eqf input{width:58px;padding:2px 5px;border:1px solid var(--line);border-radius:6px;font-size:11px;text-align:right;font-family:inherit;color:var(--ink)}
+.eqf input:focus{outline:none;border-color:#5eead4}
+.eqf i{font-style:normal;color:#94a3b8;min-width:24px}
+
+/* ---------- 设备模型 ---------- */
+.eqsvg{width:100%;height:auto;display:block}
+.eqsvg text{font-family:inherit}
+.spin{animation:eqspin 2.4s linear infinite;transform-box:fill-box;transform-origin:center}
+.spin.fast{animation-duration:.9s}
+.spin.slow{animation-duration:5s}
+.spin.vslow{animation-duration:16s}
+.spin.rev{animation-direction:reverse}
+@keyframes eqspin{to{transform:rotate(360deg)}}
+.flow{stroke-dasharray:6 8;animation:eqdash 1.1s linear infinite}
+@keyframes eqdash{to{stroke-dashoffset:-14}}
+.still *{animation:none !important}
+.rake{animation:eqrake 3.4s ease-in-out infinite alternate}
+@keyframes eqrake{to{transform:translateY(-26px)}}
+.pist{animation:eqpist 1.4s ease-in-out infinite alternate}
+@keyframes eqpist{to{transform:translateX(12px)}}
+.bub{animation:eqbub 2.6s ease-in infinite}
+@keyframes eqbub{0%{transform:translateY(0);opacity:.15}25%{opacity:.95}100%{transform:translateY(-64px);opacity:0}}
+.drop{animation:eqdrop 1.7s ease-in infinite}
+@keyframes eqdrop{0%{transform:translateY(0);opacity:1}100%{transform:translateY(20px);opacity:0}}
+.drift{animation:eqdrift 6s linear infinite}
+@keyframes eqdrift{to{transform:translateX(20px)}}
+.auger{stroke-dasharray:9 7;animation:eqaug 1.1s linear infinite}
+.auger2{stroke-dasharray:9 7;animation:eqaug 1.1s linear infinite}
+@keyframes eqaug{to{stroke-dashoffset:-16}}
+.eqlook{display:block;text-align:right;font-size:10.5px;color:#0d9488;margin-top:7px;cursor:pointer;font-weight:600}
+.eqlook:hover{text-decoration:underline}
+.atlas{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.acard{border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;background:#fff;transition:.16s}
+.acard:hover{border-color:#5eead4;box-shadow:0 8px 20px rgba(13,148,136,.13);transform:translateY(-2px)}
+.acard .thumb{background:linear-gradient(160deg,#fbfdff,#eef6fb);padding:4px 6px}
+.acard .meta{padding:8px 11px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:6px}
+.acard .an{font-size:12.5px;font-weight:600}
+.acard .au{font-size:10.5px;color:#94a3b8}
+.acard .ld{font-size:10.5px;padding:1px 7px;border-radius:20px;background:#ecfdf5;color:#047857;white-space:nowrap}
+.acard .ld.w{background:#fffbeb;color:#92400e}
+.acard .ld.b{background:#fef2f2;color:#b91c1c}
+.mask{position:fixed;inset:0;background:rgba(8,27,40,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px;backdrop-filter:blur(3px)}
+.modal{background:#fff;border-radius:16px;width:min(1100px,100%);max-height:92vh;overflow:auto;box-shadow:0 26px 70px rgba(0,0,0,.35)}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 22px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
+.modal-head h3{font-size:19px}
+.modal-head p{font-size:12px;color:var(--muted);margin-top:3px}
+.modal-head .x{border:none;background:#f1f5f9;width:30px;height:30px;border-radius:8px;font-size:17px;color:#64748b;line-height:1}
+.modal-head .x:hover{background:#e2e8f0;color:#0f172a}
+.modal-in{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:24px;padding:18px 22px 24px}
+.mleft{background:linear-gradient(160deg,#fbfdff,#eef6fb);border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;align-self:start;position:sticky;top:70px}
+.mright h4{font-size:12px;color:#0f766e;margin:14px 0 5px;letter-spacing:.5px}
+.mright h4:first-child{margin-top:0}
+.mright p{font-size:12.5px;line-height:1.85;color:#334155}
+.mstats{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:6px 10px;min-width:82px}
+.chip b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.chip span{font-size:10px;color:#94a3b8}
+.parts{margin:4px 0;padding-left:0;list-style:none;columns:2;column-gap:18px}
+.parts li{font-size:11.5px;color:#334155;line-height:1.9;break-inside:avoid}
+.parts li b{color:#0f766e;margin-right:5px}
+.faults{margin:4px 0;padding-left:18px}
+.faults li{font-size:11.5px;color:#334155;line-height:1.85}
+@media (max-width:900px){.modal-in{grid-template-columns:1fr}.mleft{position:static}.parts{columns:1}}
+
+/* ---------- 页签 ---------- */
+.bottom{padding:0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{border:1px solid var(--line);background:#fff;color:var(--muted);padding:7px 15px;border-radius:9px;font-size:13px}
+.tabs button.active{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600}
+.tabbody{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-height:220px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px}
+.mt{margin-top:16px}
+.ct{font-size:12.5px;font-weight:700;color:#334155;margin-bottom:8px}
+.ct b.big{font-size:20px;color:var(--teal)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.tbl th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;padding:7px 4px;border-bottom:1px solid var(--line);white-space:nowrap;background:#f8fafc}
+.tbl td{padding:6px 4px;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+.tbl tr:hover td{background:#f8fafc}
+.tbl td.name{font-weight:600;color:#1e293b}
+.tbl .rowout td{background:#f0fdfa;font-weight:700;color:#0f766e}
+.tbl.compact td,.tbl.compact th{padding:6px 5px}
+.tbl-wrap{overflow-x:auto}
+.muted{color:#94a3b8;font-size:11.5px;white-space:normal}
+.big{font-size:15px}
+.tg-ok{color:#047857;font-weight:600}
+.tg-bad{color:#b91c1c;font-weight:600}
+.note-line{font-size:11px;color:#94a3b8;margin-top:10px;line-height:1.6}
+.barcell{display:flex;align-items:center;gap:8px;min-width:110px}
+.minibar{flex:1;height:5px;background:#eef2f7;border-radius:3px;overflow:hidden;min-width:50px}
+.minibar i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#0e7490);border-radius:3px}
+.chartbox{min-width:0;max-width:760px;margin-top:14px}
+.chart{width:100%;height:auto}
+.clegend{display:flex;gap:14px;font-size:11.5px;color:#64748b;margin:0 0 6px 38px}
+.clegend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.cgrid{stroke:#eef2f7;stroke-width:1}
+.clab{fill:#94a3b8;font-size:10px;font-family:inherit}
+.cxlab{fill:#94a3b8;font-size:10px;font-family:inherit}
+
+/* ---------- 达标卡 ---------- */
+.cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cmp{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.cmp.ok{border-color:#bbf7d0;background:linear-gradient(160deg,#f0fdf4,#fff)}
+.cmp.warn{border-color:#fde68a;background:linear-gradient(160deg,#fffbeb,#fff)}
+.cmp.bad{border-color:#fecaca;background:linear-gradient(160deg,#fef2f2,#fff)}
+.cmp-h{display:flex;justify-content:space-between;align-items:baseline}
+.cmp-n{font-size:12.5px;color:var(--muted);font-weight:600}
+.cmp-v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+.cmp-v i{font-size:10px;font-style:normal;color:#94a3b8;font-weight:400}
+.cmp-bar{position:relative;height:7px;background:#eef2f7;border-radius:4px;margin:9px 0 7px;overflow:hidden}
+.cmp-bar i{display:block;height:100%;border-radius:4px;background:#10b981;transition:width .25s}
+.cmp.warn .cmp-bar i{background:#f59e0b}
+.cmp.bad .cmp-bar i{background:#ef4444}
+.cmp-bar b{position:absolute;top:0;bottom:0;width:2px;background:#0f172a;opacity:.5}
+.cmp-f{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.diag{display:flex;flex-direction:column;gap:7px}
+.dg{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.6;padding:8px 10px;border-radius:9px}
+.dg i{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:none}
+.dg.ok{background:#ecfdf5;color:#047857}.dg.ok i{background:#10b981}
+.dg.warn{background:#fffbeb;color:#92400e}.dg.warn i{background:#f59e0b}
+.dg.bad{background:#fef2f2;color:#b91c1c}.dg.bad i{background:#ef4444}
+
+/* ---------- 成本 ---------- */
+.price-edit{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.pe{display:flex;align-items:center;gap:6px;font-size:12px;color:#334155}
+.pe span{flex:1}
+.pe input{width:74px;padding:4px 6px;border:1px solid var(--line);border-radius:7px;font-size:12px;text-align:right;font-family:inherit}
+.pe i{font-style:normal;font-size:10.5px;color:#94a3b8;width:46px}
+
+/* ---------- 说明 ---------- */
+.notes h3{font-size:13.5px;margin:18px 0 6px;color:#0f766e}
+.notes h3:first-child{margin-top:0}
+.notes p,.notes li{font-size:12.5px;color:#334155;line-height:1.85}
+.notes ul{margin:6px 0;padding-left:20px}
+.notes b{color:#0f172a}
+
+/* ---------- 打印报告 ---------- */
+#report{display:none}
+.rp-head{border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px}
+.rp-head h1{font-size:20px}
+.rp-sub{font-size:11px;color:#64748b;margin-top:4px}
+#report h2{font-size:14px;margin:18px 0 8px;color:#0f766e}
+.rp-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.rp-tbl th,.rp-tbl td{border:1px solid #cbd5e1;padding:5px 7px;text-align:left;vertical-align:top}
+.rp-tbl th{background:#f1f5f9;font-weight:600}
+.rp-tbl td.small{font-size:10.5px;line-height:1.6}
+.rp-tbl th:first-child{width:16%}
+.rp-kv th{width:180px}
+.rp-tbl td:nth-child(n+3),.rp-tbl th:nth-child(n+3){text-align:center}
+.rp-note{font-size:10.5px;color:#64748b;margin-top:10px}
+
+@media print{
+  body{background:#fff}
+  .app,#errbar{display:none !important}
+  #report{display:block !important}
+  @page{size:A4 portrait;margin:14mm}
+}
+
+@media (max-width:1320px){ .kpis{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media (max-width:1180px){
+  .workspace{grid-template-columns:1fr}
+  .panel{position:static;max-height:none}
+  .grid2{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .top{padding:12px}
+  .workspace{padding-left:12px;padding-right:12px}
+  .alerts{padding-left:12px;padding-right:12px}
+}
+</style>
+</head>
+<body>
+<div id="errbar"></div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">A²/O</div>
+      <div>
+        <h1>污水处理厂工艺模拟器</h1>
+        <p>10 万 m³/d 市政污水 · A²/O + 深度处理 · 全流程参数可调</p>
+      </div>
+    </div>
+    <div class="tools">
+      <div class="scen"><label>工况</label><select id="scenario"></select></div>
+      <button class="btn" id="btn-reset">重置</button>
+      <button class="btn" id="btn-save">保存方案</button>
+      <button class="btn" id="btn-load">载入方案</button>
+      <button class="btn" id="btn-csv">CSV</button>
+      <button class="btn primary" id="btn-xlsx">导出 Excel</button>
+      <button class="btn primary" id="btn-pdf">导出 PDF</button>
+      <input type="file" id="file-load" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+  <div class="alerts" id="alerts"></div>
+
+  <main class="workspace">
+   <div class="colmain">
+    <section class="diagram-card">
+      <div class="card-head">
+        <h2>工艺流程与实时水质</h2>
+        <div class="hint">点击任一单元调整参数 · 数值随参数实时更新</div>
+      </div>
+      <div class="diagram" id="diagram"></div>
+      <div class="legend">
+        <span><i style="background:#3fb6ee"></i>水流</span>
+        <span><i style="background:#f59e0b"></i>污泥</span>
+        <span><i style="background:#a78bfa"></i>药剂</span>
+        <span><b class="dot" style="background:#22c55e"></b>正常</span>
+        <span><b class="dot" style="background:#f59e0b"></b>注意</span>
+        <span><b class="dot" style="background:#ef4444"></b>超标/超限</span>
+      </div>
+    </section>
+
+    <section class="bottom">
+    <nav class="tabs" id="tabs">
+      <button data-tab="table" class="active">沿程明细</button>
+      <button data-tab="compliance">出水达标</button>
+      <button data-tab="energy">能耗 · 药耗 · 污泥</button>
+      <button data-tab="cost">运行成本</button>
+      <button data-tab="models">设备模型</button>
+      <button data-tab="notes">模型说明</button>
+    </nav>
+    <div class="tabbody" id="tabbody"></div>
+    </section>
+   </div>
+    <aside class="panel" id="panel"></aside>
+  </main>
+</div>
+
+<div id="report"></div>
+
+<script>/* ==========================================================================
+   污水厂 A²/O 工艺模拟器 —— 计算引擎
+   10 万 m³/d 典型市政污水 | 混合模型：生化段简化动力学 + 其余单元物料平衡
+   ========================================================================== */
+var WW = (function () {
+  'use strict';
+
+  const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+
+  const CATS = {
+    src: { name: '进水', color: '#0f766e' },
+    pre: { name: '预处理', color: '#475569' },
+    bio: { name: '生物处理', color: '#0d9488' },
+    adv: { name: '深度处理', color: '#4f46e5' },
+    dis: { name: '消毒排放', color: '#0891b2' },
+    slu: { name: '污泥处理', color: '#b45309' },
+    eco: { name: '经济参数', color: '#7c3aed' }
+  };
+
+  /* ---------------------------------------------------------------- 参数模型 */
+  const UNITS = [
+    {
+      id: 'influent', name: '进水 / 集水井', short: '进水', cat: 'src',
+      desc: '厂外管网来水。默认按 10 万 m³/d 典型市政污水处理，调整水量与水质即可模拟不同季节、不同来水条件。',
+      params: [
+        { k: 'Qd', g: '水量', label: '设计规模（决定池容）', unit: 'm³/d', min: 20000, max: 300000, step: 5000, def: 100000, dec: 0, hint: '构筑物按此规模建成，改动后池容、面积随之变化。' },
+        { k: 'Q', g: '水量', label: '实际处理量（决定负荷）', unit: 'm³/d', min: 20000, max: 300000, step: 5000, def: 100000, dec: 0, hint: '实际进厂水量。高于设计规模即为超负荷运行。' },
+        { k: 'Kz', g: '水量', label: '时变化系数 Kz', unit: '', min: 1.1, max: 1.8, step: 0.01, def: 1.38, dec: 2, hint: '峰值流量 = 平均日流量 × Kz，用于核对构筑物峰值负荷。' },
+        { k: 'iCOD', g: '水质', label: '进水 COD', unit: 'mg/L', min: 120, max: 800, step: 5, def: 350, dec: 0, hint: '典型市政污水 300~450 mg/L。' },
+        { k: 'iBOD', g: '水质', label: '进水 BOD₅', unit: 'mg/L', min: 60, max: 400, step: 5, def: 160, dec: 0, hint: 'BOD/COD 比值反映可生化性，市政污水一般 0.4~0.55。' },
+        { k: 'iSS', g: '水质', label: '进水 SS', unit: 'mg/L', min: 80, max: 500, step: 5, def: 220, dec: 0, hint: '合流制管网雨季会明显偏低，浓度被稀释。' },
+        { k: 'iNH', g: '水质', label: '进水 NH₃-N', unit: 'mg/L', min: 10, max: 90, step: 1, def: 35, dec: 0, hint: '氨氮，硝化反应的对象，也是碱度消耗的主要来源。' },
+        { k: 'iTN', g: '水质', label: '进水 TN', unit: 'mg/L', min: 15, max: 110, step: 1, def: 45, dec: 0, hint: '总氮 = 氨氮 + 有机氮（+硝态氮）。' },
+        { k: 'iTP', g: '水质', label: '进水 TP', unit: 'mg/L', min: 1.5, max: 15, step: 0.1, def: 4.5, dec: 1, hint: '总磷，生物除磷 + 化学除磷共同去除。' },
+        { k: 'iALK', g: '水质', label: '进水碱度', unit: 'mg/L', min: 80, max: 500, step: 10, def: 280, dec: 0, hint: '以 CaCO₃ 计。硝化每去除 1 mg N 消耗 7.14 mg 碱度，不足会抑制硝化。' },
+        { k: 'iPH', g: '水质', label: '进水 pH', unit: '', min: 6.2, max: 8.6, step: 0.1, def: 7.2, dec: 1, hint: '生化池适宜 pH 6.5~8.5。' },
+        { k: 'iT', g: '水质', label: '水温', unit: '°C', min: 8, max: 32, step: 0.5, def: 20, dec: 1, hint: '直接影响硝化菌与反硝化菌活性，冬季是达标的关键变量。' },
+        { k: 'iIND', g: '水质', label: '工业废水占比', unit: '%', min: 0, max: 60, step: 1, def: 0, dec: 0, hint: '占比越高，可生化性越差、惰性 COD 越多，并抑制硝化。' }
+      ]
+    },
+    {
+      id: 'coarse', name: '粗格栅', short: '粗格栅', cat: 'pre',
+      desc: '拦截大块漂浮物与杂物，保护后续水泵。栅距越小拦截效果越好，但栅渣量与水头损失增加。',
+      params: [
+        { k: 'cs_gap', g: '栅体', label: '栅条间隙', unit: 'mm', min: 5, max: 40, step: 1, def: 20, dec: 0, hint: '常规 20 mm；转鼓式细格栅可到 3 mm。' },
+        { k: 'cs_v', g: '栅体', label: '过栅流速', unit: 'm/s', min: 0.4, max: 1.4, step: 0.05, def: 0.9, dec: 2, hint: '0.6~1.0 m/s，过低易沉积、过高易穿透。' },
+        { k: 'cs_ss', g: '去除效果', label: 'SS 去除率（基准）', unit: '%', min: 1, max: 15, step: 0.5, def: 3, dec: 1, hint: '实际去除率随栅距自动折算，间隙越小去除率越高。' },
+        { k: 'cs_loss', g: '水力', label: '水头损失', unit: 'm', min: 0.05, max: 0.6, step: 0.01, def: 0.2, dec: 2, hint: '影响提升泵扬程与能耗。' }
+      ]
+    },
+    {
+      id: 'pump', name: '提升泵房', short: '提升泵房', cat: 'pre',
+      desc: '将污水提升至后续重力流构筑物。扬程与泵组效率直接决定全厂最大的几项电耗之一。',
+      params: [
+        { k: 'pp_H', g: '水泵', label: '设计扬程', unit: 'm', min: 5, max: 22, step: 0.5, def: 12, dec: 1, hint: '含格栅、管路及后续构筑物水头损失。' },
+        { k: 'pp_eta', g: '水泵', label: '水泵效率', unit: '', min: 0.55, max: 0.88, step: 0.01, def: 0.75, dec: 2, hint: '潜污泵高效区一般 0.72~0.82。' },
+        { k: 'pp_etam', g: '水泵', label: '电机效率', unit: '', min: 0.8, max: 0.97, step: 0.01, def: 0.93, dec: 2, hint: '' },
+        { k: 'pp_n', g: '水泵', label: '装机台数', unit: '台', min: 2, max: 8, step: 1, def: 4, dec: 0, hint: '含备用泵，用于折算单泵流量。' }
+      ]
+    },
+    {
+      id: 'fine', name: '细格栅', short: '细格栅', cat: 'pre',
+      desc: '进一步去除细小杂物、纤维，保护后续曝气器与刮泥设备。',
+      params: [
+        { k: 'fs_gap', g: '栅体', label: '栅条间隙', unit: 'mm', min: 2, max: 12, step: 0.5, def: 6, dec: 1, hint: '常规 5~10 mm。' },
+        { k: 'fs_v', g: '栅体', label: '过栅流速', unit: 'm/s', min: 0.4, max: 1.4, step: 0.05, def: 0.8, dec: 2, hint: '' },
+        { k: 'fs_ss', g: '去除效果', label: 'SS 去除率（基准）', unit: '%', min: 2, max: 20, step: 0.5, def: 7, dec: 1, hint: '实际去除率随栅距自动折算。' },
+        { k: 'fs_loss', g: '水力', label: '水头损失', unit: 'm', min: 0.05, max: 0.6, step: 0.01, def: 0.3, dec: 2, hint: '' }
+      ]
+    },
+    {
+      id: 'grit', name: '曝气沉砂池', short: '曝气沉砂池', cat: 'pre',
+      desc: '利用曝气产生的旋流使砂粒与有机物分离，去除比重较大的无机砂粒，同时有一定预曝气作用。',
+      params: [
+        { k: 'gc_hrt', g: '池体', label: '水力停留时间', unit: 'min', min: 1, max: 8, step: 0.5, def: 3, dec: 1, hint: '常规 2~5 min。' },
+        { k: 'gc_air', g: '池体', label: '气水比', unit: 'm³/m³', min: 0.05, max: 0.4, step: 0.01, def: 0.15, dec: 2, hint: '0.1~0.2 m³ 空气/m³ 污水。' },
+        { k: 'gc_depth', g: '池体', label: '有效水深', unit: 'm', min: 1.5, max: 4, step: 0.1, def: 2.5, dec: 1, hint: '' },
+        { k: 'gc_ss', g: '去除效果', label: 'SS 去除率', unit: '%', min: 2, max: 20, step: 0.5, def: 8, dec: 1, hint: '主要去除无机砂粒。' },
+        { k: 'gc_cod', g: '去除效果', label: 'COD 去除率', unit: '%', min: 0, max: 10, step: 0.5, def: 3, dec: 1, hint: '' }
+      ]
+    },
+    {
+      id: 'primary', name: '初沉池', short: '初沉池', cat: 'pre',
+      desc: '重力沉淀去除可沉悬浮物，降低后续生化负荷。注意：初沉也会带走碳源，可能影响反硝化的碳氮比。',
+      params: [
+        { k: 'pc_q', g: '池体', label: '表面水力负荷', unit: 'm³/(m²·h)', min: 0.6, max: 3, step: 0.05, def: 1.5, dec: 2, hint: '常规 1.2~2.0，负荷越高沉淀越不彻底。' },
+        { k: 'pc_hrt', g: '池体', label: '水力停留时间', unit: 'h', min: 0.8, max: 3, step: 0.1, def: 1.5, dec: 1, hint: '决定池容与占地面积。' },
+        { k: 'pc_ss', g: '去除效果', label: 'SS 去除率（基准）', unit: '%', min: 20, max: 75, step: 1, def: 60, dec: 0, hint: '实际值随表面负荷自动折算。' },
+        { k: 'pc_bypass', g: '运行方式', label: '超越初沉池', unit: '', min: 0, max: 1, step: 1, def: 0, dec: 0, type: 'switch', hint: '开启后初沉池停运，全部碳源进入生化池（有助于脱氮，但生化负荷与污泥量上升）。' },
+        { k: 'pc_moist', g: '污泥', label: '初沉污泥含水率', unit: '%', min: 94, max: 98.5, step: 0.1, def: 97, dec: 1, hint: '' }
+      ]
+    },
+    {
+      id: 'anaerobic', name: '厌氧池', short: '厌氧池', cat: 'bio',
+      desc: '聚磷菌在此释磷并吸收挥发性脂肪酸（VFA），为后续好氧段过量吸磷创造条件。必须保持严格厌氧（DO≈0、无硝态氮）。',
+      params: [
+        { k: 'an_hrt', g: '池体', label: '水力停留时间', unit: 'h', min: 0.6, max: 4, step: 0.1, def: 1.5, dec: 1, hint: '常规 1~2 h，按进水流量计。' },
+        { k: 'an_do', g: '池体', label: '厌氧区溶解氧', unit: 'mg/L', min: 0, max: 1.2, step: 0.05, def: 0.2, dec: 2, hint: '应 <0.2 mg/L；过高会破坏释磷环境。' },
+        { k: 'an_prel', g: '除磷', label: '释磷系数', unit: '', min: 0.2, max: 0.9, step: 0.01, def: 0.5, dec: 2, hint: '单位进水 TP 的释磷倍率，反映 VFA 充足程度。' },
+        { k: 'an_mix', g: '池体', label: '搅拌功率密度', unit: 'W/m³', min: 1, max: 8, step: 0.5, def: 3, dec: 1, hint: '只搅拌不曝气，避免破坏厌氧环境。' }
+      ]
+    },
+    {
+      id: 'anoxic', name: '缺氧池', short: '缺氧池', cat: 'bio',
+      desc: '反硝化菌利用有机物将回流带入的硝态氮还原为氮气。内回流比与碳源是脱氮效率的两大瓶颈。',
+      params: [
+        { k: 'ax_hrt', g: '池体', label: '水力停留时间', unit: 'h', min: 1, max: 7, step: 0.1, def: 3, dec: 1, hint: '常规 2~4 h。' },
+        { k: 'ax_r', g: '回流', label: '混合液内回流比', unit: '%', min: 50, max: 500, step: 10, def: 250, dec: 0, hint: '200%~400%。过低脱氮不足，过高能耗上升且带入溶解氧。' },
+        { k: 'ax_sdnr', g: '动力学', label: '反硝化速率 SDNR', unit: 'gN/(gVSS·d)', min: 0.02, max: 0.16, step: 0.005, def: 0.09, dec: 3, hint: '20 °C 下单位活性污泥的反硝化能力；温度按 θ=1.08 修正。' },
+        { k: 'ax_fdn', g: '碳源', label: '可反硝化 COD 占比', unit: '%', min: 15, max: 80, step: 1, def: 53, dec: 0, hint: '进水中真正能被反硝化利用的 COD 比例，初沉池越彻底该值越低。' },
+        { k: 'ax_carbon', g: '碳源', label: '缺氧池外加碳源', unit: 'mg/L', min: 0, max: 80, step: 1, def: 0, dec: 0, hint: '按乙酸钠计（COD 当量 0.78）。碳源不足时投加以提高 TN 去除。' },
+        { k: 'ax_do', g: '池体', label: '缺氧区溶解氧', unit: 'mg/L', min: 0.1, max: 2, step: 0.05, def: 0.4, dec: 2, hint: '应 <0.5 mg/L；内回流携带的 DO 会消耗碳源。' }
+      ]
+    },
+    {
+      id: 'aerobic', name: '好氧池', short: '好氧池', cat: 'bio',
+      desc: '有机物降解、硝化与过量吸磷的主战场。鼓风曝气是全厂最大电耗单元，SRT 与 DO 决定硝化是否彻底。',
+      params: [
+        { k: 'ae_hrt', g: '池体', label: '水力停留时间', unit: 'h', min: 4, max: 16, step: 0.1, def: 7, dec: 1, hint: '常规 6~9 h。' },
+        { k: 'ae_srt', g: '池体', label: '污泥龄 SRT', unit: 'd', min: 6, max: 35, step: 0.5, def: 20, dec: 1, hint: '硝化菌世代周期长，冬季需 18~25 d。SRT 与池容共同决定 MLSS。' },
+        { k: 'ae_do', g: '曝气', label: '好氧区溶解氧', unit: 'mg/L', min: 0.5, max: 5, step: 0.1, def: 2, dec: 1, hint: '1.5~2.5 mg/L；低于 1.0 硝化明显受抑。' },
+        { k: 'ae_ea', g: '曝气', label: '氧转移效率 EA', unit: '%', min: 10, max: 35, step: 0.5, def: 22, dec: 1, hint: '微孔曝气器 20%~30%，老旧盘式可低至 12%。' },
+        { k: 'ae_alpha', g: '曝气', label: 'α 修正系数', unit: '', min: 0.4, max: 0.85, step: 0.01, def: 0.55, dec: 2, hint: '污水中氧转移相对清水的折减系数。' },
+        { k: 'ae_beta', g: '曝气', label: 'β 修正系数', unit: '', min: 0.85, max: 1, step: 0.01, def: 0.95, dec: 2, hint: '盐度/表面张力对饱和溶解氧的修正。' },
+        { k: 'ae_depth', g: '曝气', label: '曝气器淹没水深', unit: 'm', min: 3, max: 9, step: 0.1, def: 6, dec: 1, hint: '水深越大氧转移推动力越强，但风压也越高。' },
+        { k: 'ae_betabl', g: '曝气', label: '鼓风机效率', unit: '', min: 0.55, max: 0.85, step: 0.01, def: 0.72, dec: 2, hint: '离心/罗茨鼓风机综合效率。' }
+      ]
+    },
+    {
+      id: 'clarifier', name: '二沉池', short: '二沉池', cat: 'bio',
+      desc: '完成泥水分离，回流污泥维持生化池污泥浓度。表面负荷与固体负荷决定出水 SS。',
+      params: [
+        { k: 'cl_q', g: '池体', label: '表面水力负荷', unit: 'm³/(m²·h)', min: 0.4, max: 1.8, step: 0.05, def: 0.9, dec: 2, hint: '常规 0.6~1.2；超过 1.2 出水 SS 迅速恶化。' },
+        { k: 'cl_slr', g: '池体', label: '固体负荷上限', unit: 'kg/(m²·d)', min: 80, max: 240, step: 5, def: 150, dec: 0, hint: '设计控制值 120~160，超限会造成污泥膨胀与跑泥。' },
+        { k: 'cl_R', g: '回流', label: '污泥回流比 R', unit: '%', min: 30, max: 150, step: 5, def: 75, dec: 0, hint: '50%~100%。回流比过低会降低 MLSS，过高则增加硝态氮进入厌氧区。' },
+        { k: 'cl_moist', g: '污泥', label: '回流污泥含水率', unit: '%', min: 98, max: 99.8, step: 0.05, def: 99.2, dec: 2, hint: '' }
+      ]
+    },
+    {
+      id: 'tertiary', name: '高效沉淀池', short: '高效沉淀池', cat: 'adv',
+      desc: '投加 PAC/PAM 进行化学除磷与深度除 SS，是出水 TP 达标的关键保障。',
+      params: [
+        { k: 'tp_q', g: '池体', label: '表面水力负荷', unit: 'm³/(m²·h)', min: 3, max: 14, step: 0.5, def: 8, dec: 1, hint: '高密度沉淀池 6~10。' },
+        { k: 'tp_pac', g: '加药', label: 'PAC 投加量', unit: 'mg/L', min: 0, max: 80, step: 1, def: 25, dec: 0, hint: '聚合氯化铝。化学除磷的主要药剂，同时提高 SS 去除。' },
+        { k: 'tp_pam', g: '加药', label: 'PAM 投加量', unit: 'mg/L', min: 0, max: 2, step: 0.1, def: 0.5, dec: 1, hint: '助凝剂，改善絮体沉降性能。' },
+        { k: 'tp_ss', g: '去除效果', label: 'SS 去除率', unit: '%', min: 30, max: 90, step: 1, def: 60, dec: 0, hint: '实际出水 SS 按进水 SS 与 PAC 投加量综合计算。' }
+      ]
+    },
+    {
+      id: 'dnfilter', name: '反硝化滤池', short: '反硝化滤池', cat: 'adv',
+      desc: '深度脱氮的最后一道保险。当生化段 TN 无法稳定达标时，投加乙酸钠在此进一步反硝化。',
+      params: [
+        { k: 'df_rate', g: '池体', label: '设计滤速', unit: 'm/h', min: 4, max: 14, step: 0.5, def: 8, dec: 1, hint: '常规 6~10。' },
+        { k: 'df_ebct', g: '池体', label: '空床停留时间', unit: 'min', min: 8, max: 40, step: 1, def: 20, dec: 0, hint: '' },
+        { k: 'df_naac', g: '加药', label: '乙酸钠投加量', unit: 'mg/L', min: 0, max: 60, step: 1, def: 0, dec: 0, hint: '每 1 mg/L 乙酸钠约去除 0.17 mg/L 硝态氮。' }
+      ]
+    },
+    {
+      id: 'filter', name: '滤布滤池', short: '滤布滤池', cat: 'adv',
+      desc: '纤维转盘/滤布过滤，进一步降低出水 SS，保证一级 A 的 10 mg/L 限值。',
+      params: [
+        { k: 'fl_rate', g: '池体', label: '设计滤速', unit: 'm/h', min: 4, max: 14, step: 0.5, def: 8, dec: 1, hint: '' },
+        { k: 'fl_ss', g: '去除效果', label: '出水 SS 控制值', unit: 'mg/L', min: 2, max: 12, step: 0.5, def: 4.5, dec: 1, hint: '正常 3~6 mg/L。' }
+      ]
+    },
+    {
+      id: 'disinfection', name: '次氯酸钠消毒', short: '消毒', cat: 'dis',
+      desc: '接触消毒灭活致病菌。投加量与接触时间（CT 值）共同决定粪大肠菌群去除效果。',
+      params: [
+        { k: 'di_dose', g: '消毒', label: '有效氯投加量', unit: 'mg/L', min: 0, max: 12, step: 0.5, def: 3, dec: 1, hint: '常规 2~5 mg/L。' },
+        { k: 'di_ct', g: '消毒', label: '接触时间', unit: 'min', min: 10, max: 60, step: 1, def: 30, dec: 0, hint: '≥30 min。' }
+      ]
+    },
+    {
+      id: 'sludge', name: '污泥浓缩 · 脱水', short: '污泥处理', cat: 'slu',
+      desc: '初沉污泥与剩余污泥合并浓缩、脱水后外运。上清液与滤液回流会带来额外的氮负荷。',
+      params: [
+        { k: 'sl_thick', g: '浓缩', label: '浓缩后含水率', unit: '%', min: 94, max: 99, step: 0.1, def: 97, dec: 1, hint: '重力浓缩 97%~98%，机械浓缩可到 94%~96%。' },
+        { k: 'sl_cake', g: '脱水', label: '泥饼含水率', unit: '%', min: 60, max: 85, step: 0.5, def: 80, dec: 1, hint: '离心/带式脱水常规 78%~82%。' },
+        { k: 'sl_pam', g: '脱水', label: 'PAM 单耗', unit: 'kg/tDS', min: 0, max: 8, step: 0.1, def: 3, dec: 1, hint: '每吨干泥消耗的聚丙烯酰胺。' },
+        { k: 'sl_recycle', g: '回流', label: '滤液回流比例', unit: '%', min: 0, max: 3, step: 0.1, def: 0.5, dec: 1, hint: '上清液/滤液返回生化池的水量占比，携带高浓度氨氮（按 150 mg/L 计）。' }
+      ]
+    },
+    {
+      id: 'cost', name: '运行成本参数', short: '成本', cat: 'eco',
+      desc: '用于折算吨水成本。单价可按当地实际价格调整。',
+      params: [
+        { k: 'c_elec', g: '单价', label: '电价', unit: '元/kWh', min: 0.3, max: 1.2, step: 0.01, def: 0.65, dec: 2, hint: '' },
+        { k: 'c_pac', g: '单价', label: 'PAC 单价', unit: '元/kg', min: 0.5, max: 5, step: 0.1, def: 2.2, dec: 1, hint: '' },
+        { k: 'c_pam', g: '单价', label: 'PAM 单价', unit: '元/kg', min: 8, max: 35, step: 0.5, def: 18, dec: 1, hint: '' },
+        { k: 'c_naac', g: '单价', label: '乙酸钠单价', unit: '元/kg', min: 1, max: 6, step: 0.1, def: 2.5, dec: 1, hint: '' },
+        { k: 'c_naocl', g: '单价', label: '次氯酸钠单价', unit: '元/kg', min: 0.5, max: 4, step: 0.1, def: 1.2, dec: 1, hint: '以有效氯计。' },
+        { k: 'c_sludge', g: '单价', label: '污泥处置费', unit: '元/t', min: 80, max: 600, step: 10, def: 300, dec: 0, hint: '按含水率 80% 泥饼计。' },
+        { k: 'c_fixed', g: '其他', label: '人工/维修/折旧', unit: '元/m³', min: 0, max: 0.5, step: 0.01, def: 0.16, dec: 2, hint: '不随水量变化的固定成本摊薄值。' }
+      ]
+    }
+  ];
+
+  /* ---------------------------------------------------------------- 设备选型 */
+  var EQ_SPEC = {
+    pump: [{
+      id: 'pmp', name: '潜水排污泵', unit: 'm³/h', nk: 'eq_pump_n', nsk: 'eq_pump_ns', pk: 'eq_pump_p',
+      fields: ['eq_pump_q', 'eq_pump_p', 'eq_pump_n', 'eq_pump_ns'],
+      params: [['eq_pump_q', '单泵额定流量', 'm³/h', 200, 4000, 10, 1400], ['eq_pump_p', '电机功率', 'kW', 11, 250, 1, 75], ['eq_pump_n', '工作台数', '台', 1, 6, 1, 3], ['eq_pump_ns', '备用台数', '台', 0, 3, 1, 1]],
+      dem: function (R, P) { return P.Q / 24; },
+      cap: function (P) { return P.eq_pump_q * P.eq_pump_n; },
+      kw: function (R, P) { return R.u.pump.kw; }
+    }],
+    coarse: [{
+      id: 'cs', name: '回转式格栅除污机', unit: 'm³/h', nk: 'eq_cs_n', pk: 'eq_cs_p',
+      fields: ['eq_cs_q', 'eq_cs_p', 'eq_cs_n'],
+      params: [['eq_cs_q', '过栅能力', 'm³/h', 1000, 12000, 100, 5000], ['eq_cs_p', '单机功率', 'kW', 0.75, 7.5, 0.25, 1.5], ['eq_cs_n', '工作台数', '台', 1, 4, 1, 1]],
+      dem: function (R, P) { return P.Q / 24; },
+      cap: function (P) { return P.eq_cs_q * P.eq_cs_n; },
+      kw: function (R, P) { return P.eq_cs_p * P.eq_cs_n; }
+    }],
+    fine: [{
+      id: 'fs', name: '转鼓式细格栅', unit: 'm³/h', nk: 'eq_fs_n', pk: 'eq_fs_p',
+      fields: ['eq_fs_q', 'eq_fs_p', 'eq_fs_n'],
+      params: [['eq_fs_q', '过栅能力', 'm³/h', 1000, 12000, 100, 5000], ['eq_fs_p', '单机功率', 'kW', 0.75, 11, 0.25, 2.2], ['eq_fs_n', '工作台数', '台', 1, 4, 1, 1]],
+      dem: function (R, P) { return P.Q / 24; },
+      cap: function (P) { return P.eq_fs_q * P.eq_fs_n; },
+      kw: function (R, P) { return P.eq_fs_p * P.eq_fs_n; }
+    }],
+    grit: [
+      {
+        id: 'gb', name: '罗茨鼓风机', unit: 'm³/min', nk: 'eq_gb_n', pk: 'eq_gb_p',
+        fields: ['eq_gb_q', 'eq_gb_p', 'eq_gb_n'],
+        params: [['eq_gb_q', '单机风量', 'm³/min', 2, 40, 0.5, 12], ['eq_gb_p', '电机功率', 'kW', 2.2, 45, 0.5, 15], ['eq_gb_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: function (R, P) { return R.u.grit.air / 1440; },
+        cap: function (P) { return P.eq_gb_q * P.eq_gb_n; },
+        kw: function (R, P) { return P.eq_gb_p * P.eq_gb_n * 0.85; }
+      },
+      {
+        id: 'gs', name: '砂水分离器', unit: 'L/s', nk: 'eq_gs_n', pk: 'eq_gs_p',
+        fields: ['eq_gs_q', 'eq_gs_p', 'eq_gs_n'],
+        params: [['eq_gs_q', '处理能力', 'L/s', 5, 60, 1, 20], ['eq_gs_p', '单机功率', 'kW', 0.75, 7.5, 0.25, 1.5], ['eq_gs_n', '台数', '台', 1, 4, 1, 1]],
+        dem: null,
+        cap: function (P) { return P.eq_gs_q * P.eq_gs_n; },
+        kw: function (R, P) { return P.eq_gs_p * P.eq_gs_n; }
+      }
+    ],
+    primary: [{
+      id: 'pm', name: '中心传动刮泥机', unit: 'kW', nk: 'eq_pm_n', pk: 'eq_pm_p',
+      fields: ['eq_pm_p', 'eq_pm_n'],
+      params: [['eq_pm_p', '单机功率', 'kW', 0.75, 11, 0.25, 1.5], ['eq_pm_n', '台数', '台', 1, 6, 1, 2]],
+      dem: null,
+      cap: function (P) { return P.eq_pm_p * P.eq_pm_n; },
+      kw: function (R, P) { return P.eq_pm_p * P.eq_pm_n; }
+    }],
+    anaerobic: [{
+      id: 'an', name: '潜水搅拌器', unit: 'kW', nk: 'eq_an_n', pk: 'eq_an_p',
+      fields: ['eq_an_p', 'eq_an_n'],
+      params: [['eq_an_p', '单机功率', 'kW', 1.5, 11, 0.5, 3], ['eq_an_n', '台数', '台', 1, 12, 1, 7]],
+      dem: function (R, P) { return R.u.anaerobic.V * P.an_mix / 1000; },
+      cap: function (P) { return P.eq_an_p * P.eq_an_n; },
+      kw: function (R, P) { return R.u.anaerobic.V * P.an_mix / 1000; }
+    }],
+    anoxic: [{
+      id: 'ax', name: '潜水搅拌器', unit: 'kW', nk: 'eq_ax_n', pk: 'eq_ax_p',
+      fields: ['eq_ax_p', 'eq_ax_n'],
+      params: [['eq_ax_p', '单机功率', 'kW', 1.5, 11, 0.5, 5], ['eq_ax_n', '台数', '台', 1, 16, 1, 8]],
+      dem: function (R, P) { return R.u.anoxic.V * 3 / 1000; },
+      cap: function (P) { return P.eq_ax_p * P.eq_ax_n; },
+      kw: function (R, P) { return R.u.anoxic.V * 3 / 1000; }
+    }],
+    aerobic: [
+      {
+        id: 'bl', name: '离心鼓风机', unit: 'm³/min', nk: 'eq_bl_n', nsk: 'eq_bl_ns', pk: 'eq_bl_p',
+        fields: ['eq_bl_q', 'eq_bl_p', 'eq_bl_n', 'eq_bl_ns'],
+        params: [['eq_bl_q', '单机风量', 'm³/min', 20, 400, 5, 133], ['eq_bl_p', '电机功率', 'kW', 30, 500, 10, 250], ['eq_bl_n', '工作台数', '台', 1, 6, 1, 3], ['eq_bl_ns', '备用台数', '台', 0, 3, 1, 1]],
+        dem: function (R, P) { return R.u.aerobic.air / 1440; },
+        cap: function (P) { return P.eq_bl_q * P.eq_bl_n; },
+        kw: function (R, P) { return R.u.aerobic.kw; }
+      },
+      {
+        id: 'ad', name: '微孔曝气器', unit: '个', nk: 'eq_ad_n', pk: null,
+        fields: ['eq_ad_n', 'eq_ad_c'],
+        params: [['eq_ad_n', '曝气器数量', '个', 2000, 30000, 100, 9700], ['eq_ad_c', '单个通气量', 'm³/h', 1, 5, 0.1, 2.5]],
+        dem: function (R, P) { return R.u.aerobic.air / 24 / P.eq_ad_c; },
+        cap: function (P) { return P.eq_ad_n; },
+        kw: null
+      },
+      {
+        id: 'ir', name: '混合液回流泵', unit: 'm³/h', nk: 'eq_ir_n', nsk: 'eq_ir_ns', pk: 'eq_ir_p',
+        fields: ['eq_ir_q', 'eq_ir_p', 'eq_ir_n', 'eq_ir_ns'],
+        params: [['eq_ir_q', '单泵额定流量', 'm³/h', 500, 8000, 50, 5200], ['eq_ir_p', '电机功率', 'kW', 7.5, 160, 2.5, 55], ['eq_ir_n', '工作台数', '台', 1, 6, 1, 2], ['eq_ir_ns', '备用台数', '台', 0, 2, 1, 1]],
+        dem: function (R, P) { return P.Q * P.ax_r / 100 / 24; },
+        cap: function (P) { return P.eq_ir_q * P.eq_ir_n; },
+        kw: function (R, P) { return 9.81 * (P.Q * P.ax_r / 100 / 86400) * 2.5 / 0.78; }
+      }
+    ],
+    clarifier: [
+      {
+        id: 'cl', name: '周边传动刮吸泥机', unit: 'kW', nk: 'eq_cl_n', pk: 'eq_cl_p',
+        fields: ['eq_cl_p', 'eq_cl_n'],
+        params: [['eq_cl_p', '单机功率', 'kW', 0.75, 11, 0.25, 3], ['eq_cl_n', '台数', '台', 1, 8, 1, 4]],
+        dem: null,
+        cap: function (P) { return P.eq_cl_p * P.eq_cl_n; },
+        kw: function (R, P) { return P.eq_cl_p * P.eq_cl_n; }
+      },
+      {
+        id: 'rp', name: '污泥回流泵', unit: 'm³/h', nk: 'eq_rp_n', nsk: 'eq_rp_ns', pk: 'eq_rp_p',
+        fields: ['eq_rp_q', 'eq_rp_p', 'eq_rp_n', 'eq_rp_ns'],
+        params: [['eq_rp_q', '单泵额定流量', 'm³/h', 200, 4000, 10, 1563], ['eq_rp_p', '电机功率', 'kW', 5.5, 110, 2.5, 45], ['eq_rp_n', '工作台数', '台', 1, 5, 1, 2], ['eq_rp_ns', '备用台数', '台', 0, 2, 1, 1]],
+        dem: function (R, P) { return P.Q * P.cl_R / 100 / 24; },
+        cap: function (P) { return P.eq_rp_q * P.eq_rp_n; },
+        kw: function (R, P) { return 9.81 * (P.Q * P.cl_R / 100 / 86400) * 6.0 / 0.78; }
+      },
+      {
+        id: 'ws', name: '剩余污泥泵', unit: 'm³/h', nk: 'eq_ws_n', pk: 'eq_ws_p',
+        fields: ['eq_ws_q', 'eq_ws_p', 'eq_ws_n'],
+        params: [['eq_ws_q', '单泵额定流量', 'm³/h', 5, 200, 5, 50], ['eq_ws_p', '电机功率', 'kW', 1.5, 22, 0.5, 7.5], ['eq_ws_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: function (R, P) { return (R.sludge.dsBio / 8) / 24; },
+        cap: function (P) { return P.eq_ws_q * P.eq_ws_n; },
+        kw: function (R, P) { return P.eq_ws_p * P.eq_ws_n * 0.6; }
+      }
+    ],
+    tertiary: [
+      {
+        id: 'tm', name: '混凝搅拌机', unit: 'kW', nk: 'eq_tm_n', pk: 'eq_tm_p',
+        fields: ['eq_tm_p', 'eq_tm_n'],
+        params: [['eq_tm_p', '单机功率', 'kW', 1.5, 15, 0.5, 5.5], ['eq_tm_n', '台数', '台', 1, 8, 1, 2]],
+        dem: null,
+        cap: function (P) { return P.eq_tm_p * P.eq_tm_n; },
+        kw: function (R, P) { return P.eq_tm_p * P.eq_tm_n; }
+      },
+      {
+        id: 'ts', name: '浓缩刮泥机', unit: 'kW', nk: 'eq_ts_n', pk: 'eq_ts_p',
+        fields: ['eq_ts_p', 'eq_ts_n'],
+        params: [['eq_ts_p', '单机功率', 'kW', 0.75, 11, 0.25, 4], ['eq_ts_n', '台数', '台', 1, 6, 1, 2]],
+        dem: null,
+        cap: function (P) { return P.eq_ts_p * P.eq_ts_n; },
+        kw: function (R, P) { return P.eq_ts_p * P.eq_ts_n; }
+      },
+      {
+        id: 'pp', name: 'PAC 计量泵', unit: 'L/h', nk: 'eq_pp_n', pk: 'eq_pp_p',
+        fields: ['eq_pp_q', 'eq_pp_p', 'eq_pp_n'],
+        params: [['eq_pp_q', '单泵流量', 'L/h', 100, 3000, 50, 1100], ['eq_pp_p', '电机功率', 'kW', 0.37, 3, 0.01, 1.5], ['eq_pp_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: function (R, P) { return P.tp_pac * P.Q / 1000 / 0.1 / 24; },
+        cap: function (P) { return P.eq_pp_q * P.eq_pp_n; },
+        kw: function (R, P) { return P.eq_pp_p * P.eq_pp_n * 0.5; }
+      }
+    ],
+    dnfilter: [
+      {
+        id: 'bw', name: '反冲洗泵', unit: 'm³/h', nk: 'eq_bw_n', pk: 'eq_bw_p',
+        fields: ['eq_bw_q', 'eq_bw_p', 'eq_bw_n'],
+        params: [['eq_bw_q', '单泵流量', 'm³/h', 100, 2000, 50, 800], ['eq_bw_p', '电机功率', 'kW', 11, 90, 5, 45], ['eq_bw_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: null,
+        cap: function (P) { return P.eq_bw_q * P.eq_bw_n; },
+        kw: function (R, P) { return P.eq_bw_p * P.eq_bw_n * 0.35; }
+      },
+      {
+        id: 'np', name: '乙酸钠计量泵', unit: 'L/h', nk: 'eq_np_n', pk: 'eq_np_p',
+        fields: ['eq_np_q', 'eq_np_p', 'eq_np_n'],
+        params: [['eq_np_q', '单泵流量', 'L/h', 20, 1000, 10, 300], ['eq_np_p', '电机功率', 'kW', 0.37, 2.2, 0.01, 0.75], ['eq_np_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: function (R, P) { return (P.df_naac + P.ax_carbon) * P.Q / 1000 / 0.2 / 24; },
+        cap: function (P) { return P.eq_np_q * P.eq_np_n; },
+        kw: function (R, P) { return P.eq_np_p * P.eq_np_n * 0.5; }
+      }
+    ],
+    filter: [{
+      id: 'fd', name: '纤维转盘过滤器', unit: 'm³/h', nk: 'eq_fd_n', pk: 'eq_fd_p',
+      fields: ['eq_fd_q', 'eq_fd_p', 'eq_fd_n'],
+      params: [['eq_fd_q', '单台处理能力', 'm³/h', 500, 6000, 10, 2080], ['eq_fd_p', '单机功率', 'kW', 0.75, 11, 0.25, 3], ['eq_fd_n', '台数', '台', 1, 8, 1, 2]],
+      dem: function (R, P) { return P.Q / 24; },
+      cap: function (P) { return P.eq_fd_q * P.eq_fd_n; },
+      kw: function (R, P) { return P.eq_fd_p * P.eq_fd_n; }
+    }],
+    disinfection: [{
+      id: 'dp', name: '次氯酸钠计量泵', unit: 'L/h', nk: 'eq_dp_n', pk: 'eq_dp_p',
+      fields: ['eq_dp_q', 'eq_dp_p', 'eq_dp_n'],
+      params: [['eq_dp_q', '单泵流量', 'L/h', 20, 600, 10, 200], ['eq_dp_p', '电机功率', 'kW', 0.37, 2.2, 0.01, 0.75], ['eq_dp_n', '工作台数', '台', 1, 4, 1, 1]],
+      dem: function (R, P) { return P.di_dose * P.Q / 1000 / 0.1 / 24; },
+      cap: function (P) { return P.eq_dp_q * P.eq_dp_n; },
+      kw: function (R, P) { return P.eq_dp_p * P.eq_dp_n * 0.5; }
+    }],
+    sludge: [
+      {
+        id: 'dw', name: '卧螺离心脱水机', unit: 'm³/h', nk: 'eq_dw_n', nsk: 'eq_dw_ns', pk: 'eq_dw_p',
+        fields: ['eq_dw_q', 'eq_dw_p', 'eq_dw_n', 'eq_dw_ns'],
+        params: [['eq_dw_q', '单机处理量', 'm³/h', 5, 60, 1, 20], ['eq_dw_p', '电机功率', 'kW', 11, 90, 1, 45], ['eq_dw_n', '工作台数', '台', 1, 4, 1, 2], ['eq_dw_ns', '备用台数', '台', 0, 2, 1, 1]],
+        dem: function (R, P) { return R.sludge.thickVol / 18; },
+        cap: function (P) { return P.eq_dw_q * P.eq_dw_n; },
+        kw: function (R, P) { return P.eq_dw_p * P.eq_dw_n; }
+      },
+      {
+        id: 'dpm', name: 'PAM 加药泵', unit: 'L/h', nk: 'eq_dpm_n', pk: 'eq_dpm_p',
+        fields: ['eq_dpm_q', 'eq_dpm_p', 'eq_dpm_n'],
+        params: [['eq_dpm_q', '单泵流量', 'L/h', 100, 3000, 50, 1500], ['eq_dpm_p', '电机功率', 'kW', 0.37, 3, 0.01, 1.5], ['eq_dpm_n', '工作台数', '台', 1, 4, 1, 1]],
+        dem: function (R, P) { return R.sludge.pam / 0.002 / 24; },
+        cap: function (P) { return P.eq_dpm_q * P.eq_dpm_n; },
+        kw: function (R, P) { return P.eq_dpm_p * P.eq_dpm_n * 0.5; }
+      }
+    ]
+  };
+
+  // 把设备参数并入对应单元，供面板统一渲染与默认值收集
+  Object.keys(EQ_SPEC).forEach(function (uid) {
+    var unit = UNITS.filter(function (u) { return u.id === uid; })[0];
+    if (!unit) return;
+    EQ_SPEC[uid].forEach(function (t) {
+      t.params.forEach(function (pp) {
+        unit.params.push({
+          k: pp[0], g: '设备', label: pp[1], unit: pp[2], min: pp[3], max: pp[4],
+          step: pp[5], def: pp[6], dec: pp[5] < 1 ? 2 : 0, eq: true, hint: ''
+        });
+      });
+    });
+  });
+
+  const DEFAULTS = {};
+  UNITS.forEach(function (u) { u.params.forEach(function (p) { DEFAULTS[p.k] = p.def; }); });
+
+  const LIMITS = {
+    A: { COD: 50, BOD: 10, SS: 10, NH: 5, TN: 15, TP: 0.5, FC: 1000 },
+    B: { COD: 60, BOD: 20, SS: 20, NH: 8, TN: 20, TP: 1.0, FC: 10000 }
+  };
+
+  /* ---------------------------------------------------------------- 工具函数 */
+  // 按比例去除：SS/COD/BOD/TP 按比例，TN 只去除有机氮部分
+  function remove(s, f) {
+    const o = {};
+    for (const k in s) o[k] = s[k];
+    const on = Math.max(0, s.TN - s.NH);
+    o.COD = s.COD * (1 - (f.COD || 0));
+    o.BOD = s.BOD * (1 - (f.BOD || 0));
+    o.SS = s.SS * (1 - (f.SS || 0));
+    o.TP = s.TP * (1 - (f.TP || 0));
+    o.NH = s.NH * (1 - (f.NH || 0));
+    o.TN = s.TN - on * (f.TN || 0) - s.NH * (f.NH || 0);
+    if (o.TN < o.NH) o.TN = o.NH;
+    return o;
+  }
+
+  /* ---------------------------------------------------------------- 主计算 */
+  function simulate(P) {
+    const R = { u: {}, warn: [], streams: [], energy: [] };
+    const Q = P.Q, Qd = P.Qd, T = P.iT, ind = P.iIND / 100;
+    const addE = (name, kw, hours) => {
+      const h = hours === undefined ? 24 : hours;
+      R.energy.push({ name: name, kw: Math.max(0, kw), kwh: Math.max(0, kw) * h });
+    };
+
+    /* ---- 进水 ---- */
+    const inf = { Q: Q, COD: P.iCOD, BOD: P.iBOD, SS: P.iSS, NH: P.iNH, TN: P.iTN, TP: P.iTP, ALK: P.iALK };
+    const bc = inf.BOD / Math.max(1, inf.COD);
+    R.u.influent = {
+      Q: Q, Qd: Qd, loadRatio: Q / Qd, peakQ: Q * P.Kz, bc: bc,
+      loadCOD: inf.COD * Q / 1000, loadTN: inf.TN * Q / 1000, loadTP: inf.TP * Q / 1000
+    };
+    R.streams.push({ id: 'influent', name: '进水', Q: Q, COD: inf.COD, BOD: inf.BOD, SS: inf.SS, NH: inf.NH, TN: inf.TN, TP: inf.TP, ALK: inf.ALK, hrt: 0, note: '管网来水' });
+
+    /* ---- 粗格栅 ---- */
+    let s = inf;
+    {
+      const rs = clamp(P.cs_ss / 100 * Math.pow(20 / P.cs_gap, 0.3), 0.005, 0.2);
+      s = remove(s, { SS: rs, COD: 0.6 * rs, BOD: 0.6 * rs, TP: 0.3 * rs, TN: 0.25 });
+      R.u.coarse = { rs: rs, gap: P.cs_gap, loss: P.cs_loss, screenings: Q * 0.00003, v: P.cs_v };
+      R.streams.push({ id: 'coarse', name: '粗格栅', Q: Q, COD: s.COD, BOD: s.BOD, SS: s.SS, NH: s.NH, TN: s.TN, TP: s.TP, ALK: s.ALK, hrt: 0.02, note: '栅距 ' + P.cs_gap + ' mm' });
+    }
+
+    /* ---- 提升泵房 ---- */
+    {
+      const flow = Q / 86400; // m³/s
+      const kw = 9.81 * flow * P.pp_H / (P.pp_eta * P.pp_etam);
+      addE('进水泵房', kw);
+      R.u.pump = { kw: kw, kwh: kw * 24, head: P.pp_H, perM3: kw * 24 / Q, n: P.pp_n, single: Q / P.pp_n };
+      R.streams.push({ id: 'pump', name: '提升泵房', Q: Q, COD: s.COD, BOD: s.BOD, SS: s.SS, NH: s.NH, TN: s.TN, TP: s.TP, ALK: s.ALK, hrt: 0.1, note: '提升 ' + P.pp_H + ' m' });
+    }
+
+    /* ---- 细格栅 ---- */
+    {
+      const rs = clamp(P.fs_ss / 100 * Math.pow(6 / P.fs_gap, 0.3), 0.005, 0.25);
+      s = remove(s, { SS: rs, COD: 0.6 * rs, BOD: 0.6 * rs, TP: 0.3 * rs, TN: 0.3 });
+      R.u.fine = { rs: rs, gap: P.fs_gap, loss: P.fs_loss, screenings: Q * 0.00006, v: P.fs_v };
+      R.streams.push({ id: 'fine', name: '细格栅', Q: Q, COD: s.COD, BOD: s.BOD, SS: s.SS, NH: s.NH, TN: s.TN, TP: s.TP, ALK: s.ALK, hrt: 0.02, note: '栅距 ' + P.fs_gap + ' mm' });
+    }
+
+    /* ---- 曝气沉砂池 ---- */
+    {
+      const V = Qd * P.gc_hrt / 1440;
+      const hrtAct = V / Q * 1440;
+      const rs = clamp(P.gc_ss / 100 * Math.pow(hrtAct / 3, 0.25), 0.01, 0.3);
+      s = remove(s, { SS: rs, COD: P.gc_cod / 100, BOD: P.gc_cod / 100, TP: 0.15 * rs, TN: 0.15 });
+      const air = P.gc_air * Q;
+      const kw = air / 86400 * 4000 / 0.6 / 1000 + 3.0;
+      addE('曝气沉砂池', kw);
+      R.u.grit = { rs: rs, V: V, air: air, kw: kw, grit: Q * 0.000025, hrt: hrtAct };
+      R.streams.push({ id: 'grit', name: '曝气沉砂池', Q: Q, COD: s.COD, BOD: s.BOD, SS: s.SS, NH: s.NH, TN: s.TN, TP: s.TP, ALK: s.ALK, hrt: P.gc_hrt / 60, note: 'HRT ' + P.gc_hrt + ' min' });
+    }
+
+    /* ---- 初沉池 ---- */
+    let primarySludge = 0, dsPrimary = 0;
+    {
+      const ssIn = s.SS;
+      const on = P.pc_bypass ? 0 : 1;
+      const area = Qd / (P.pc_q * 24);
+      const qAct = Q / (area * 24);
+      const rsSS = on * clamp(P.pc_ss / 100 * Math.pow(1.5 / qAct, 0.35), 0.1, 0.85);
+      const rsCOD = on * 0.48 * rsSS;
+      const rsBOD = on * 0.55 * rsSS;
+      s = remove(s, { SS: rsSS, COD: rsCOD, BOD: rsBOD, TP: on * 0.12, TN: on * 0.35 });
+      const V = Qd * P.pc_hrt / 24;
+      dsPrimary = rsSS * ssIn * Q / 1000;
+      primarySludge = dsPrimary / ((1 - P.pc_moist / 100) * 1000);
+      R.u.primary = { rsSS: rsSS, rsCOD: rsCOD, rsBOD: rsBOD, area: area, V: V, q: qAct, qd: P.pc_q, bypass: !!P.pc_bypass, ds: dsPrimary, vol: primarySludge, ssIn: ssIn };
+      R.streams.push({ id: 'primary', name: P.pc_bypass ? '初沉池（超越）' : '初沉池', Q: Q, COD: s.COD, BOD: s.BOD, SS: s.SS, NH: s.NH, TN: s.TN, TP: s.TP, ALK: s.ALK, hrt: P.pc_bypass ? 0 : P.pc_hrt, note: P.pc_bypass ? '超越运行' : ('q=' + qAct.toFixed(2) + ' m³/(m²·h)') });
+    }
+
+    /* ---- 生化池 ---- */
+    const B = {};
+    {
+      // 滤液回流带来的额外负荷（上清液 NH 150 / COD 250 / TP 20 / SS 400）
+      const fr = P.sl_recycle / 100;
+      const codIn = s.COD + 250 * fr;
+      const bodIn = s.BOD;
+      const ssIn = s.SS + 400 * fr;
+      const nhIn = s.NH + 150 * fr;
+      const tnIn = s.TN + 160 * fr;
+      const tpIn = s.TP + 20 * fr;
+      const alkIn = s.ALK;
+
+      const Va = Qd * P.an_hrt / 24, Vx = Qd * P.ax_hrt / 24, Vo = Qd * P.ae_hrt / 24;
+      const Vb = Va + Vx + Vo;
+      const srt = P.ae_srt, doA = P.ae_do;
+
+      // 出水有机物
+      const inert = 0.06 + 0.22 * ind;
+      const codOut = 14 + inert * codIn;
+      const bodOut = 3.0 + 0.014 * bodIn;
+      const dCOD = (codIn - codOut) * Q / 1000;         // kg/d
+
+      // 污泥产量与 MLSS
+      const Yobs = 0.60 / (1 + 0.05 * srt);
+      const PxAct = Yobs * dCOD;
+      const PxInert = 0.25 * ssIn * Q / 1000;
+      const Px = PxAct + PxInert;                        // kgDS/d
+      const mlss = clamp(srt * Px / Vb, 1.2, 8.0);       // kg/m³
+
+      // 硝化
+      const nitInhib = 1 - 0.30 * ind;
+      const muA = 0.75 * Math.pow(1.072, T - 20) * (doA / (doA + 0.5)) * (nhIn / (nhIn + 1)) * nitInhib;
+      const srtMin = 1 / Math.max(0.06, muA - 0.05);
+      const ratio = srt / srtMin;
+      let fNit = Math.pow(ratio, 3) / (1 + Math.pow(ratio, 3));
+
+      const nAssim = 0.045 * Px * 1000 / Q;              // mg/L 同化
+      const onEff = 1.2 + 0.04 * (tnIn - nhIn);          // 出水有机氮
+      const tknNit = Math.max(0, tnIn - nAssim - onEff); // 可硝化氨氮
+      let nNit = tknNit * fNit;
+
+      // 反硝化
+      const Rr = P.cl_R / 100, rr = P.ax_r / 100;
+      const fdn = P.ax_fdn / 100;
+      const codAvail = fdn * codIn * Q / 1000;
+      const codAdd = P.ax_carbon * 0.78 * Q / 1000;
+      const capC = (codAvail + codAdd) / 4.5;            // kgN/d 碳源限制
+      const capK = P.ax_sdnr * Math.pow(1.06, T - 20) * (mlss * 0.7) * Vx; // kgN/d 动力学限制
+      const cap = Math.min(capC, capK);
+      const floor = nNit / (1 + Rr + rr);
+      let no3 = Math.max(floor, nNit - cap * 1000 / Q);
+
+      // 碱度校核
+      let alkLeft = alkIn - 7.14 * nNit + 3.57 * (nNit - no3);
+      if (alkLeft < 40 && fNit > 0.05) {
+        const allow = Math.max(0, (alkIn + 40) / 7.14 + 0.5 * (nNit - no3));
+        const fMax = clamp(allow / Math.max(0.01, tknNit), 0, 1);
+        if (fMax < fNit) {
+          fNit = fMax;
+          nNit = tknNit * fNit;
+          no3 = Math.max(nNit / (1 + Rr + rr), nNit - cap * 1000 / Q);
+          alkLeft = alkIn - 7.14 * nNit + 3.57 * (nNit - no3);
+        }
+      }
+      const nhOut = Math.max(0.3, (tknNit - nNit) + 0.6);
+      const tnOut = nhOut + onEff + no3;
+      const nDenit = (nNit - no3) * Q / 1000;
+      const nNitLoad = nNit * Q / 1000;
+
+      // 生物除磷
+      const pRel = P.an_prel * tpIn * Math.sqrt(P.an_hrt / 1.5) / (1 + 2.0 * P.an_do);
+      const no3Ana = no3 * Rr / (1 + Rr);
+      const pEta = 1 / (1 + 0.10 * no3Ana);
+      const pRem = Math.min(tpIn * 0.85, 2.6 * pRel * pEta);
+      const tpOut = Math.max(0.15, tpIn - pRem);
+      const tpHyd = tpIn + pRel;
+
+      // 需氧量
+      const aor = 0.50 * dCOD + 4.57 * nNitLoad - 2.86 * nDenit;
+      const cs20 = 9.17;
+      const csm = cs20 * (1 + P.ae_depth / 20.6 * 0.5);
+      const fld = clamp(P.ae_alpha * (P.ae_beta * csm - doA) / cs20 * Math.pow(1.024, T - 20), 0.15, 1.2);
+      const sor = aor / fld;
+      const air = sor / (0.3 * P.ae_ea / 100);            // m³/d
+      const dp = 9.81 * (P.ae_depth + 1.2) * 1000;        // Pa
+      const kwAer = air / 86400 * dp / P.ae_betabl / 1000;
+      addE('生化鼓风机', kwAer);
+
+      // 回流与搅拌能耗
+      const flowIn = Q / 86400;
+      const kwR = 9.81 * flowIn * Rr * 6.0 / 0.78;
+      const kwr = 9.81 * flowIn * rr * 2.5 / 0.78;
+      addE('污泥回流泵', kwR);
+      addE('混合液内回流泵', kwr);
+      const kwMix = (Va + Vx) * Math.max(P.an_mix, 2) / 1000 * 1.15;
+      addE('厌氧/缺氧搅拌器', kwMix);
+
+      const qw = Px / 8; // 剩余污泥体积 m³/d（按 8 g/L）
+      const kwW = 9.81 * (qw / 86400) * 12 / 0.7;
+      addE('剩余污泥泵', kwW);
+
+      B.codIn = codIn; B.bodIn = bodIn; B.ssIn = ssIn; B.nhIn = nhIn; B.tnIn = tnIn; B.tpIn = tpIn;
+      B.Vb = Vb; B.Va = Va; B.Vx = Vx; B.Vo = Vo; B.hrtAct = Vb / Q;
+      B.codOut = codOut; B.bodOut = bodOut; B.tpOut = tpOut; B.nhOut = nhOut; B.tnOut = tnOut;
+      B.no3 = no3; B.mlss = mlss; B.Px = Px; B.fNit = fNit; B.srtMin = srtMin; B.muA = muA;
+      B.nNit = nNit; B.nDenit = nDenit; B.alkLeft = alkLeft; B.aor = aor; B.sor = sor; B.air = air;
+      B.kwAer = kwAer; B.pRel = pRel; B.no3Ana = no3Ana; B.pRem = pRem; B.tpHyd = tpHyd;
+      B.capC = capC; B.capK = capK; B.cap = cap; B.limited = capC < capK ? '碳源不足' : '动力学受限';
+      B.dCOD = dCOD; B.qw = qw;
+
+      R.u.anaerobic = {
+        V: Va, hrt: P.an_hrt, do: P.an_do, pRel: pRel, no3Ana: no3Ana,
+        tpIn: tpIn, tpHyd: tpHyd, pEta: pEta
+      };
+      R.u.anoxic = {
+        V: Vx, hrt: P.ax_hrt, r: P.ax_r, capC: capC, capK: capK, cap: cap, limited: B.limited,
+        no3In: nNit * (Rr + rr) / (1 + Rr + rr), removed: nDenit, no3Out: no3,
+        do: P.ax_do, carbon: P.ax_carbon
+      };
+      R.u.aerobic = {
+        V: Vo, hrt: P.ae_hrt, srt: srt, mlss: mlss, muA: muA, srtMin: srtMin, fNit: fNit,
+        nNitLoad: nNitLoad, nhOut: nhOut, alkLeft: alkLeft, aor: aor, sor: sor, air: air,
+        kw: kwAer, kwh: kwAer * 24, do: doA
+      };
+
+      // 生化出水（混合液）→ 二沉池
+      R.streams.push({
+        id: 'bio', name: 'A²/O 生化池', Q: Q, COD: codOut, BOD: bodOut, SS: mlss * 1000,
+        NH: nhOut, TN: tnOut, TP: tpOut, ALK: alkLeft, hrt: P.an_hrt + P.ax_hrt + P.ae_hrt,
+        note: 'MLSS ' + Math.round(mlss * 1000) + ' mg/L'
+      });
+    }
+
+    /* ---- 二沉池 ---- */
+    let ssC, codC, bodC, nhC, tnC, tpC;
+    {
+      const Rr = P.cl_R / 100;
+      const area = Qd / (P.cl_q * 24);
+      const qAct = Q / (area * 24);
+      const slr = (Q * (1 + Rr)) * B.mlss / area;
+      ssC = clamp(4 + 9 * Math.pow(qAct / 0.9, 3) + Math.max(0, slr - P.cl_slr) / P.cl_slr * 10, 3, 120);
+      codC = B.codOut * 0.97;
+      bodC = B.bodOut * 0.95;
+      nhC = B.nhOut; tnC = B.tnOut; tpC = B.tpOut;
+      const xr = B.mlss * (1 + Rr) / Rr;
+      addE('二沉池刮泥机', Q / 25000 * 1.1);
+      R.u.clarifier = {
+        area: area, q: qAct, qd: P.cl_q, slr: slr, slrMax: P.cl_slr, R: P.cl_R, xr: xr, ssOut: ssC,
+        v: Q * P.cl_R / 100
+      };
+      R.streams.push({ id: 'clarifier', name: '二沉池', Q: Q, COD: codC, BOD: bodC, SS: ssC, NH: nhC, TN: tnC, TP: tpC, ALK: B.alkLeft, hrt: 3, note: 'q=' + qAct.toFixed(2) + ' m³/(m²·h)' });
+    }
+
+    /* ---- 高效沉淀池 ---- */
+    let ssT, codT, bodT, tpT, nhT, tnT, dsChem = 0;
+    {
+      const area = Qd / (P.tp_q * 24);
+      tpT = Math.max(0.06, tpC * 0.32 - 0.0075 * P.tp_pac);
+      ssT = Math.max(2.5, 4 + 0.15 * (ssC - 10) + Math.max(0, 10 - P.tp_pac) * 0.12);
+      ssT = Math.min(ssT, ssC);
+      codT = codC * 0.88;
+      bodT = bodC * 0.85;
+      nhT = nhC; tnT = tnC;
+      dsChem = P.tp_pac * 0.35 * Q / 1000 + Math.max(0, (ssC - ssT)) * Q / 1000;
+      addE('高效沉淀池', 12);
+      R.u.tertiary = { area: area, q: Q / (area * 24), pac: P.tp_pac, pam: P.tp_pam, tpOut: tpT, ssOut: ssT, ds: dsChem, tpRem: 1 - tpT / Math.max(0.01, tpC) };
+      R.streams.push({ id: 'tertiary', name: '高效沉淀池', Q: Q, COD: codT, BOD: bodT, SS: ssT, NH: nhT, TN: tnT, TP: tpT, ALK: B.alkLeft, hrt: 0.9, note: 'PAC ' + P.tp_pac + ' mg/L' });
+    }
+
+    /* ---- 反硝化滤池 ---- */
+    let ssD, no3D, tnD, tpD, codD;
+    {
+      const area = Qd / (P.df_rate * 24);
+      const capF = P.df_naac * 0.78 / 4.5;     // mg/L NO3-N 去除能力
+      no3D = Math.max(0, B.no3 - capF);
+      tnD = tnC - (B.no3 - no3D);
+      tpD = Math.max(0.05, tpT * 0.95);
+      ssD = Math.max(3, ssT * 0.85);
+      codD = codT * 0.95;
+      addE('反硝化滤池（反冲洗）', 16, 20);
+      R.u.dnfilter = { area: area, rate: P.df_rate, ebct: P.df_ebct, naac: P.df_naac, no3In: B.no3, no3Out: no3D, removed: (B.no3 - no3D) * Q / 1000 };
+      R.streams.push({ id: 'dnfilter', name: '反硝化滤池', Q: Q, COD: codD, BOD: bodT * 0.9, SS: ssD, NH: nhT, TN: tnD, TP: tpD, ALK: B.alkLeft, hrt: P.df_ebct / 60, note: P.df_naac > 0 ? ('乙酸钠 ' + P.df_naac + ' mg/L') : '不投碳源' });
+    }
+
+    /* ---- 滤布滤池 ---- */
+    let ssF, codF, tpf, tnf, nhf, bodf;
+    {
+      const area = Qd / (P.fl_rate * 24);
+      ssF = Math.min(ssD, P.fl_ss);
+      codF = codD * 0.95;
+      bodf = bodT * 0.85;
+      tpf = tpD * 0.97;
+      tnf = tnD; nhf = nhT;
+      addE('滤布滤池', 10, 22);
+      R.u.filter = { area: area, rate: P.fl_rate, ssOut: ssF };
+      R.streams.push({ id: 'filter', name: '滤布滤池', Q: Q, COD: codF, BOD: bodf, SS: ssF, NH: nhf, TN: tnf, TP: tpf, ALK: B.alkLeft, hrt: 0.2, note: '出水 SS 控制 ' + P.fl_ss });
+    }
+
+    /* ---- 消毒 ---- */
+    let fc, codE;
+    {
+      const logRem = clamp(0.8 + 1.15 * P.di_dose * Math.pow(P.di_ct / 30, 0.4), 0, 7);
+      fc = 1e7 / Math.pow(10, logRem);
+      codE = codF * 0.98;
+      addE('加药与消毒', 2.2);
+      R.u.disinfection = { logRem: logRem, fc: fc, dose: P.di_dose, ct: P.di_ct };
+      R.streams.push({ id: 'out', name: '出水', Q: Q, COD: codE, BOD: bodf, SS: ssF, NH: nhf, TN: tnf, TP: tpf, ALK: B.alkLeft, hrt: 0.5, note: '达标排放' });
+      R.effluent = R.streams[R.streams.length - 1];
+    }
+
+    /* ---- 污泥处理 ---- */
+    const sludge = {};
+    {
+      const ds = dsPrimary + B.Px + dsChem;
+      const thickVol = ds / ((1 - P.sl_thick / 100) * 1000);
+      const cake = ds / ((1 - P.sl_cake / 100));           // kg/d 泥饼
+      const pamSludge = ds / 1000 * P.sl_pam;
+      addE('污泥脱水', 74, 18);
+      addE('污泥浓缩', 11, 20);
+      sludge.ds = ds;
+      sludge.dsPrimary = dsPrimary;
+      sludge.dsBio = B.Px;
+      sludge.dsChem = dsChem;
+      sludge.volIn = dsPrimary / ((1 - P.pc_moist / 100) * 1000) + B.qw;
+      sludge.thickVol = thickVol;
+      sludge.cake = cake / 1000;        // t/d
+      sludge.moist = P.sl_cake;
+      sludge.pam = pamSludge;
+      sludge.filterQ = Math.max(0, thickVol - cake / 1000);
+      R.sludge = sludge;
+      R.u.sludge = { ds: ds, thickVol: thickVol, cake: cake / 1000, dsPrimary: dsPrimary, dsBio: B.Px, dsChem: dsChem, pam: pamSludge };
+      R.streams.push({ id: 'sludge', name: '污泥脱水（泥饼）', Q: 0, COD: 0, BOD: 0, SS: 0, NH: 0, TN: 0, TP: 0, ALK: 0, hrt: 0, note: '含水率 ' + P.sl_cake + '%' });
+    }
+
+    /* ---- 能耗汇总 ---- */
+    addE('其他辅助（除臭、照明、自控）', 25);
+    R.energyTotal = R.energy.reduce(function (a, e) { return a + e.kwh; }, 0);
+    R.energyPerM3 = R.energyTotal / Q;
+    R.u.energy = { total: R.energyTotal, perM3: R.energyPerM3 };
+
+    /* ---- 设备清单与负荷校核 ---- */
+    (function () {
+      var list = [];
+      var unitName = {};
+      UNITS.forEach(function (u) { unitName[u.id] = u.name; });
+      var install = 0, running = 0;
+      Object.keys(EQ_SPEC).forEach(function (uid) {
+        var u = R.u[uid];
+        if (!u) return;
+        u.eq = EQ_SPEC[uid].map(function (t) {
+          var n = P[t.nk] || 1;
+          var ns = t.nsk ? (P[t.nsk] || 0) : 0;
+          var p = t.pk ? P[t.pk] : 0;
+          var cap = t.cap ? t.cap(P) : 0;
+          var dem = t.dem ? t.dem(R, P) : null;
+          var load = (dem !== null && cap > 0) ? dem / cap : null;
+          var kw = t.kw ? t.kw(R, P) : 0;
+          install += p * (n + ns);
+          running += kw;
+          var item = {
+            id: t.id, name: t.name, n: n, ns: ns, p: p, cap: cap, dem: dem, load: load,
+            kw: kw, unit: t.unit, fields: t.fields, unitId: uid, unitName: unitName[uid]
+          };
+          list.push(item);
+          return item;
+        });
+      });
+      R.equipment = list;
+      R.eqInstall = install;
+      R.eqRunning = running;
+      list.forEach(function (e) {
+        if (e.load === null || !(e.dem > 0)) return;
+        var l = Math.round(e.load * 100);
+        if (e.load > 1.02) {
+          R.warn.push({ lv: 'bad', t: e.unitName + '「' + e.name + '」能力不足：需求 ' + Math.round(e.dem) + ' / 额定 ' + Math.round(e.cap) + ' ' + e.unit + '（负荷率 ' + l + '%），需增加台数或加大规格。' });
+        } else if (e.load < 0.4) {
+          R.warn.push({ lv: 'warn', t: e.unitName + '「' + e.name + '」选型偏大：负荷率仅 ' + l + '%。' });
+        }
+      });
+    })();
+
+    /* ---- 达标判定 ---- */
+    const out = R.effluent;
+    const cmp = [];
+    function push(name, key, val, dec, unit) {
+      const lim = LIMITS.A[key];
+      cmp.push({ name: name, value: val, limit: lim, dec: dec, unit: unit, pass: val <= lim, ratio: val / lim });
+    }
+    push('COD', 'COD', out.COD, 1, 'mg/L');
+    push('BOD₅', 'BOD', out.BOD, 1, 'mg/L');
+    push('SS', 'SS', out.SS, 1, 'mg/L');
+    push('NH₃-N', 'NH', out.NH, 2, 'mg/L');
+    push('TN', 'TN', out.TN, 1, 'mg/L');
+    push('TP', 'TP', out.TP, 2, 'mg/L');
+    push('粪大肠菌群', 'FC', fc, 0, '个/L');
+    R.compliance = cmp;
+    R.pass = cmp.every(function (c) { return c.pass; });
+    R.passCount = cmp.filter(function (c) { return c.pass; }).length;
+    R.complianceB = [
+      { name: 'COD', key: 'COD' },
+      { name: 'BOD₅', key: 'BOD' },
+      { name: 'SS', key: 'SS' },
+      { name: 'NH₃-N', key: 'NH' },
+      { name: 'TN', key: 'TN' },
+      { name: 'TP', key: 'TP' }
+    ].map(function (x) {
+      const v = LIMITS.A[x.key] !== undefined ? (x.key === 'COD' ? out.COD : x.key === 'BOD' ? out.BOD : x.key === 'SS' ? out.SS : x.key === 'NH' ? out.NH : x.key === 'TN' ? out.TN : out.TP) : 0;
+      return { name: x.name, value: v, limitA: LIMITS.A[x.key], limitB: LIMITS.B[x.key], passA: v <= LIMITS.A[x.key], pass: v <= LIMITS.B[x.key] };
+    });
+
+    /* ---- 成本 ---- */
+    const elec = R.energyTotal * P.c_elec / Q;
+    const pacCost = P.tp_pac * P.c_pac / 1000;
+    const pamCost = (P.tp_pam + P.sl_pam * sludge.ds / 1000 / Q * 1000) * P.c_pam / 1000;
+    const naacCost = (P.ax_carbon + P.df_naac) * P.c_naac / 1000;
+    const naoclCost = P.di_dose * P.c_naocl / 1000;
+    const chem = pacCost + pamCost + naacCost + naoclCost;
+    const sludgeCost = sludge.cake * P.c_sludge / Q;
+    const totalCost = elec + chem + sludgeCost + P.c_fixed;
+    R.cost = {
+      elec: elec, chem: chem, pac: pacCost, pam: pamCost, naac: naacCost, naocl: naoclCost,
+      sludge: sludgeCost, fixed: P.c_fixed, total: totalCost,
+      chemKg: { pac: P.tp_pac, pam: P.tp_pam + P.sl_pam * sludge.ds / 1000 / Q * 1000, naac: P.ax_carbon + P.df_naac, naocl: P.di_dose }
+    };
+
+    /* ---- 提示 ---- */
+    const W = R.warn;
+    if (out.TN > 15) W.push({ lv: 'bad', t: '出水 TN ' + out.TN.toFixed(1) + ' mg/L 超过一级 A 限值 15 mg/L，可提高内回流比、投加碳源或开启反硝化滤池加药。' });
+    if (out.TP > 0.5) W.push({ lv: 'bad', t: '出水 TP ' + out.TP.toFixed(2) + ' mg/L 超过 0.5 mg/L，建议提高 PAC 投加量或改善厌氧区环境。' });
+    if (out.NH > 5) W.push({ lv: 'bad', t: '出水氨氮 ' + out.NH.toFixed(1) + ' mg/L 超标，硝化不彻底：检查 SRT、DO、水温与碱度。' });
+    if (out.COD > 50) W.push({ lv: 'bad', t: '出水 COD 超标，检查进水冲击负荷与生化池停留时间。' });
+    if (out.SS > 10) W.push({ lv: 'bad', t: '出水 SS 超标：二沉池表面负荷或固体负荷偏高。' });
+    if (B.alkLeft < 50) W.push({ lv: 'warn', t: '剩余碱度仅 ' + B.alkLeft.toFixed(0) + ' mg/L，硝化受到碱度限制。' });
+    if (B.fNit < 0.95) W.push({ lv: 'warn', t: '硝化率 ' + (B.fNit * 100).toFixed(0) + '%，SRT 相对最低硝化泥龄偏短（需 ' + B.srtMin.toFixed(1) + ' d）。' });
+    if (R.u.clarifier.slr > P.cl_slr) W.push({ lv: 'warn', t: '二沉池固体负荷 ' + R.u.clarifier.slr.toFixed(0) + ' kg/(m²·d) 超过控制值，存在跑泥风险。' });
+    if (P.cl_R / 100 * 1 > 1.2) W.push({ lv: 'warn', t: '污泥回流比偏高，回流污泥携带的硝态氮会抑制厌氧释磷。' });
+    if (P.ax_r < 150) W.push({ lv: 'warn', t: '内回流比偏低，脱氮潜力受限。' });
+    if (P.an_do > 0.5) W.push({ lv: 'warn', t: '厌氧区 DO 偏高，聚磷菌释磷受抑制。' });
+    if (B.capC < B.capK) W.push({ lv: 'warn', t: '反硝化受碳源限制，可考虑投加碳源或超越初沉池保留碳源。' });
+    if (fc > 1000) W.push({ lv: 'warn', t: '粪大肠菌群超标，消毒 CT 值不足。' });
+    if (W.length === 0) W.push({ lv: 'ok', t: '当前工况全部指标达到《城镇污水处理厂污染物排放标准》一级 A 标准。' });
+
+    return R;
+  }
+
+  return { UNITS: UNITS, DEFAULTS: DEFAULTS, CATS: CATS, LIMITS: LIMITS, simulate: simulate };
+})();
+</script>
+<script>/* ==========================================================================
+   设备模型图库 —— 13 类设备剖面/示意图（SVG + CSS 动画）
+   供课堂投屏使用：每台设备都有编号部件、原理、故障与运行参数
+   ========================================================================== */
+var EQMODEL = (function () {
+  'use strict';
+
+  /* ---------------- 绘图小工具 ---------------- */
+  function t(x, y, str, size, anchor, fill) {
+    return '<text x="' + x + '" y="' + y + '" font-size="' + (size || 11) + '" fill="' + (fill || '#475569') +
+      '" text-anchor="' + (anchor || 'middle') + '">' + str + '</text>';
+  }
+  // 编号标注：badge(bx,by) → 引线 → 指向部件(px,py)
+  function c(n, bx, by, px, py) {
+    return '<line x1="' + bx + '" y1="' + by + '" x2="' + px + '" y2="' + py +
+      '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2"/>' +
+      '<circle cx="' + bx + '" cy="' + by + '" r="9" fill="#0f766e"/>' +
+      '<text x="' + bx + '" y="' + (by + 3.6) + '" font-size="10.5" fill="#fff" font-weight="700" text-anchor="middle">' + n + '</text>';
+  }
+  function arrow(d, color) {
+    return '<path class="flow" d="' + d + '" fill="none" stroke="' + (color || '#2563eb') +
+      '" stroke-width="2.5" marker-end="url(#eqA)"/>';
+  }
+
+  /* ---------------- 1. 离心泵 / 潜污泵 ---------------- */
+  function pump() {
+    var s = '';
+    s += '<rect x="6" y="116" width="92" height="38" rx="4" fill="#cfe8f7" stroke="#64748b"/>';
+    s += '<circle cx="160" cy="135" r="58" fill="#e6edf5" stroke="#475569" stroke-width="2"/>';
+    s += '<circle cx="160" cy="135" r="46" fill="#cbd5e1" stroke="#94a3b8"/>';
+    s += '<g class="spin">';
+    for (var i = 0; i < 6; i++) {
+      s += '<path d="M160,135 Q175,119 161,101" stroke="#0f766e" stroke-width="5" fill="none" stroke-linecap="round" transform="rotate(' + (i * 60) + ' 160 135)"/>';
+    }
+    s += '<circle cx="160" cy="135" r="9" fill="#0f766e"/></g>';
+    // 排出管
+    s += '<path d="M160,77 V34 H392" fill="none" stroke="#64748b" stroke-width="16" stroke-linejoin="round"/>';
+    s += '<path d="M160,77 V34 H392" fill="none" stroke="#cfe8f7" stroke-width="10" stroke-linejoin="round"/>';
+    s += arrow('M158,70 V40 H378');
+    // 轴 + 电机
+    s += '<rect x="216" y="129" width="58" height="12" fill="#94a3b8" stroke="#475569"/>';
+    s += '<rect x="272" y="104" width="88" height="62" rx="8" fill="#dbe4ee" stroke="#475569" stroke-width="2"/>';
+    s += t(316, 141, '电机');
+    s += '<rect x="118" y="196" width="244" height="10" rx="3" fill="#94a3b8"/>';
+    // 吸水侧箭头
+    s += arrow('M14,135 H84');
+    // 标注
+    s += c(1, 138, 222, 152, 164);
+    s += c(2, 236, 222, 214, 166);
+    s += c(3, 250, 112, 250, 129);
+    s += c(4, 202, 92, 212, 131);
+    s += c(5, 332, 90, 316, 104);
+    s += c(6, 300, 24, 300, 34);
+    return s;
+  }
+
+  /* ---------------- 2. 回转式格栅除污机 ---------------- */
+  function screen() {
+    var s = '';
+    s += '<rect x="26" y="34" width="348" height="200" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="26" y="118" width="348" height="116" fill="#cfe8f7"/>';
+    s += '<path d="M26,118 H112" stroke="#7cc7ea" stroke-width="2"/>';
+    s += '<path d="M292,118 H374" stroke="#7cc7ea" stroke-width="2"/>';
+    for (var i = 0; i < 11; i++) {
+      var x = 130 + i * 16;
+      s += '<line x1="' + x + '" y1="74" x2="' + x + '" y2="234" stroke="#475569" stroke-width="4" stroke-linecap="round"/>';
+    }
+    s += '<rect x="118" y="56" width="184" height="10" rx="4" fill="#94a3b8"/>';
+    s += '<rect x="186" y="24" width="48" height="30" rx="4" fill="#dbe4ee" stroke="#475569"/>';
+    s += t(210, 43, '电机', 9.5);
+    s += '<line x1="142" y1="66" x2="142" y2="116" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3"/>';
+    s += '<line x1="278" y1="66" x2="278" y2="116" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3"/>';
+    s += '<g class="rake">';
+    s += '<rect x="134" y="114" width="152" height="8" rx="3" fill="#0f766e"/>';
+    for (var j = 0; j < 9; j++) {
+      s += '<line x1="' + (144 + j * 16) + '" y1="122" x2="' + (144 + j * 16) + '" y2="138" stroke="#0f766e" stroke-width="4" stroke-linecap="round"/>';
+    }
+    s += '</g>';
+    s += '<circle cx="164" cy="156" r="6" fill="#a16207"/>';
+    s += '<circle cx="198" cy="172" r="5" fill="#854d0e"/>';
+    s += '<circle cx="238" cy="150" r="4.5" fill="#a16207"/>';
+    s += arrow('M40,186 H106');
+    s += arrow('M304,186 H362');
+    s += c(1, 112, 206, 130, 196);
+    s += c(2, 322, 118, 292, 126);
+    s += c(3, 322, 74, 278, 84);
+    s += c(4, 252, 28, 226, 34);
+    s += c(5, 62, 154, 164, 156);
+    return s;
+  }
+
+  /* ---------------- 3. 转鼓式细格栅 ---------------- */
+  function drum() {
+    var s = '';
+    s += '<rect x="26" y="40" width="348" height="196" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="26" y="112" width="348" height="124" fill="#cfe8f7"/>';
+    s += '<path d="M26,112 H370" stroke="#7cc7ea" stroke-width="2"/>';
+    // 转鼓（横放圆柱）
+    s += '<ellipse cx="256" cy="146" rx="16" ry="52" fill="#e6edf5" stroke="#475569" stroke-width="2"/>';
+    s += '<rect x="132" y="94" width="124" height="104" fill="#e6edf5"/>';
+    s += '<line x1="132" y1="94" x2="256" y2="94" stroke="#475569" stroke-width="2"/>';
+    s += '<line x1="132" y1="198" x2="256" y2="198" stroke="#475569" stroke-width="2"/>';
+    s += '<ellipse cx="132" cy="146" rx="16" ry="52" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>';
+    // 鼓面滤网
+    s += '<g class="drift">';
+    for (var i = 0; i < 6; i++) {
+      for (var j = 0; j < 4; j++) {
+        s += '<circle cx="' + (146 + i * 20) + '" cy="' + (108 + j * 24) + '" r="2" fill="#94a3b8"/>';
+      }
+    }
+    s += '</g>';
+    // 反冲洗管
+    s += '<path d="M150,64 H300" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>';
+    for (var k = 0; k < 5; k++) {
+      s += '<line x1="' + (164 + k * 30) + '" y1="70" x2="' + (164 + k * 30) + '" y2="82" stroke="#38bdf8" stroke-width="2.5"/>';
+    }
+    s += '<circle cx="164" cy="88" r="2.5" fill="#38bdf8" class="drop"/>';
+    s += '<circle cx="224" cy="90" r="2.5" fill="#38bdf8" class="drop d2"/>';
+    // 进水/出水
+    s += arrow('M36,158 H112');
+    s += arrow('M286,196 H360');
+    s += '<path d="M120,146 H132" stroke="#2563eb" stroke-width="2.5"/>';
+    s += c(1, 210, 214, 210, 198);
+    s += c(2, 96, 120, 146, 130);
+    s += c(3, 318, 64, 300, 64);
+    s += c(4, 60, 140, 36, 158);
+    s += c(5, 320, 214, 300, 198);
+    return s;
+  }
+
+  /* ---------------- 4. 罗茨鼓风机 ---------------- */
+  function roots() {
+    var s = '';
+    s += '<rect x="92" y="74" width="216" height="112" rx="56" fill="#e6edf5" stroke="#475569" stroke-width="2.5"/>';
+    // 进气 / 排气
+    s += '<path d="M150,74 V34 H96" fill="none" stroke="#64748b" stroke-width="14" stroke-linejoin="round"/>';
+    s += '<path d="M150,74 V34 H96" fill="none" stroke="#eaf6fd" stroke-width="8" stroke-linejoin="round"/>';
+    s += '<path d="M250,186 V226 H304" fill="none" stroke="#64748b" stroke-width="14" stroke-linejoin="round"/>';
+    s += '<path d="M250,186 V226 H304" fill="none" stroke="#eaf6fd" stroke-width="8" stroke-linejoin="round"/>';
+    // 转子
+    function lobe(cx) {
+      var g = '<g transform="translate(' + cx + ',130)">';
+      for (var i = 0; i < 3; i++) {
+        g += '<ellipse cx="0" cy="-19" rx="10" ry="18" fill="#94a3b8" stroke="#475569" stroke-width="1.5" transform="rotate(' + (i * 120) + ')"/>';
+      }
+      g += '<circle r="9" fill="#64748b"/></g>';
+      return g;
+    }
+    s += '<g class="spin slow">' + lobe(150) + '</g>';
+    s += '<g class="spin rev">' + lobe(250) + '</g>';
+    s += arrow('M104,44 H142');
+    s += arrow('M258,214 H296');
+    s += c(1, 150, 80, 150, 104);
+    s += c(2, 300, 96, 288, 108);
+    s += c(3, 84, 26, 96, 34);
+    s += c(4, 318, 236, 300, 226);
+    s += c(5, 214, 214, 240, 186);
+    return s;
+  }
+
+  /* ---------------- 5. 离心鼓风机 ---------------- */
+  function blower() {
+    var s = '';
+    s += '<rect x="8" y="112" width="80" height="42" rx="4" fill="#eaf6fd" stroke="#64748b"/>';
+    s += '<rect x="10" y="106" width="10" height="54" fill="#94a3b8"/>';
+    s += '<circle cx="168" cy="134" r="60" fill="#e6edf5" stroke="#475569" stroke-width="2"/>';
+    s += '<path d="M168,74 C214,74 232,104 220,140 C208,176 176,192 168,192" fill="none" stroke="#94a3b8" stroke-width="1"/>';
+    s += '<g class="spin fast">';
+    for (var i = 0; i < 8; i++) {
+      s += '<path d="M168,134 Q186,112 172,92" stroke="#0e7490" stroke-width="6" fill="none" stroke-linecap="round" transform="rotate(' + (i * 45) + ' 168 134)"/>';
+    }
+    s += '<circle cx="168" cy="134" r="10" fill="#0e7490"/></g>';
+    s += '<path d="M168,74 V34 H392" fill="none" stroke="#64748b" stroke-width="16" stroke-linejoin="round"/>';
+    s += '<path d="M168,74 V34 H392" fill="none" stroke="#eaf6fd" stroke-width="10" stroke-linejoin="round"/>';
+    s += arrow('M166,68 V40 H378', '#0891b2');
+    s += arrow('M18,133 H96', '#0891b2');
+    s += '<rect x="226" y="122" width="62" height="14" fill="#94a3b8"/>';
+    s += '<rect x="288" y="98" width="76" height="62" rx="8" fill="#dbe4ee" stroke="#475569" stroke-width="2"/>';
+    s += '<text x="326" y="135" font-size="11" fill="#475569" text-anchor="middle">电机</text>';
+    s += c(1, 44, 100, 44, 112);
+    s += c(2, 168, 200, 168, 160);
+    s += c(3, 226, 196, 214, 168);
+    s += c(4, 262, 110, 244, 128);
+    s += c(5, 300, 24, 300, 34);
+    return s;
+  }
+
+  /* ---------------- 6. 螺旋输送 / 砂水分离器 ---------------- */
+  function screw() {
+    var s = '';
+    s += '<path d="M44,214 L286,118 L300,146 L58,242 Z" fill="#eef2f7" stroke="#475569" stroke-width="2"/>';
+    s += '<path d="M44,214 L286,118 L300,146 L58,242 Z" fill="#cfe8f7" opacity=".55"/>';
+    // 螺旋轴
+    s += '<line x1="52" y1="226" x2="292" y2="132" stroke="#475569" stroke-width="5"/>';
+    // 螺旋叶片（虚线动画模拟旋转）
+    s += '<path class="auger" d="M62,220 L74,204 L86,214 L98,198 L110,208 L122,192 L134,202 L146,186 L158,196 L170,180 L182,190 L194,174 L206,184 L218,168 L230,178 L242,162 L254,172 L266,156 L278,166 L290,150" fill="none" stroke="#0f766e" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>';
+    // 砂粒
+    s += '<circle cx="96" cy="210" r="3.5" fill="#a16207"/>';
+    s += '<circle cx="140" cy="192" r="3" fill="#854d0e"/>';
+    s += '<circle cx="190" cy="172" r="3.5" fill="#a16207"/>';
+    s += '<circle cx="238" cy="152" r="3" fill="#854d0e"/>';
+    // 驱动
+    s += '<rect x="286" y="112" width="52" height="40" rx="6" fill="#dbe4ee" stroke="#475569"/>';
+    s += '<text x="312" y="137" font-size="10" fill="#475569" text-anchor="middle">驱动</text>';
+    // 溢流
+    s += '<path d="M64,244 H120" stroke="#38bdf8" stroke-width="3"/>';
+    s += arrow('M104,252 H64');
+    s += c(1, 150, 226, 160, 196);
+    s += c(2, 70, 178, 56, 214);
+    s += c(3, 350, 100, 330, 118);
+    s += c(4, 320, 176, 296, 152);
+    s += c(5, 40, 262, 64, 244);
+    return s;
+  }
+
+  /* ---------------- 7. 刮泥机 / 刮吸泥机（俯视） ---------------- */
+  function scraper() {
+    var s = '';
+    s += '<circle cx="200" cy="128" r="98" fill="#cfe8f7" stroke="#475569" stroke-width="3"/>';
+    s += '<circle cx="200" cy="128" r="90" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4"/>';
+    s += '<circle cx="200" cy="128" r="26" fill="#bae6fd" stroke="#475569" stroke-width="1.5"/>';
+    s += '<circle cx="200" cy="128" r="9" fill="#475569"/>';
+    // 旋转刮臂
+    s += '<g class="spin vslow">';
+    s += '<line x1="200" y1="128" x2="200" y2="54" stroke="#0f766e" stroke-width="5" stroke-linecap="round"/>';
+    s += '<line x1="200" y1="128" x2="200" y2="202" stroke="#0f766e" stroke-width="5" stroke-linecap="round"/>';
+    s += '<rect x="176" y="62" width="8" height="34" fill="#0f766e" opacity=".85" transform="rotate(-20 180 79)"/>';
+    s += '<rect x="216" y="62" width="8" height="34" fill="#0f766e" opacity=".85" transform="rotate(20 220 79)"/>';
+    s += '<rect x="176" y="160" width="8" height="34" fill="#0f766e" opacity=".85" transform="rotate(20 180 177)"/>';
+    s += '<rect x="216" y="160" width="8" height="34" fill="#0f766e" opacity=".85" transform="rotate(-20 220 177)"/>';
+    s += '</g>';
+    // 固定工作桥
+    s += '<rect x="98" y="120" width="204" height="16" fill="#94a3b8" stroke="#475569"/>';
+    s += '<rect x="184" y="110" width="32" height="36" rx="4" fill="#dbe4ee" stroke="#475569"/>';
+    // 进水管 / 出水堰
+    s += '<path d="M120,12 V72" stroke="#64748b" stroke-width="12"/>';
+    s += '<path d="M120,12 V72" stroke="#cfe8f7" stroke-width="7"/>';
+    s += arrow('M120,18 V64');
+    s += '<path d="M298,26 L252,62" stroke="#64748b" stroke-width="12"/>';
+    s += '<path d="M298,26 L252,62" stroke="#cfe8f7" stroke-width="7"/>';
+    s += arrow('M286,40 L246,70');
+    s += c(1, 330, 100, 302, 126);
+    s += c(2, 330, 60, 216, 112);
+    s += c(3, 150, 92, 196, 74);
+    s += c(4, 254, 188, 222, 172);
+    s += c(5, 200, 232, 200, 154);
+    s += c(6, 74, 96, 131, 59);
+    return s;
+  }
+
+  /* ---------------- 8. 潜水搅拌器 ---------------- */
+  function mixer() {
+    var s = '';
+    s += '<rect x="26" y="40" width="348" height="196" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="26" y="96" width="348" height="140" fill="#cfe8f7"/>';
+    s += '<path d="M26,96 H374" stroke="#7cc7ea" stroke-width="2"/>';
+    // 导杆
+    s += '<line x1="70" y1="60" x2="70" y2="212" stroke="#94a3b8" stroke-width="4"/>';
+    // 主机
+    s += '<rect x="64" y="132" width="62" height="42" rx="12" fill="#dbe4ee" stroke="#475569" stroke-width="2"/>';
+    s += '<circle cx="126" cy="153" r="7" fill="#64748b"/>';
+    // 桨叶
+    s += '<g class="spin">';
+    s += '<ellipse cx="139" cy="153" rx="6" ry="20" fill="#0f766e"/>';
+    s += '<ellipse cx="139" cy="153" rx="20" ry="6" fill="#0f766e" opacity=".55"/>';
+    s += '</g>';
+    // 射流与环流
+    s += arrow('M152,153 H236', '#0891b2');
+    s += '<path class="flow" d="M250,120 C320,110 340,170 262,186 C200,198 150,190 140,176" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6 8"/>';
+    s += c(1, 96, 120, 96, 132);
+    s += c(2, 176, 118, 146, 146);
+    s += c(3, 44, 74, 68, 66);
+    s += c(4, 300, 96, 292, 126);
+    return s;
+  }
+
+  /* ---------------- 9. 微孔曝气器 ---------------- */
+  function diffuser() {
+    var s = '';
+    s += '<rect x="20" y="40" width="360" height="196" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="20" y="70" width="360" height="166" fill="#d7edfa"/>';
+    s += '<path d="M20,70 H380" stroke="#7cc7ea" stroke-width="2"/>';
+    // 空气管
+    s += '<path d="M40,206 H360" stroke="#64748b" stroke-width="10" stroke-linecap="round"/>';
+    for (var i = 0; i < 3; i++) {
+      var x = 110 + i * 90;
+      s += '<line x1="' + x + '" y1="206" x2="' + x + '" y2="192" stroke="#64748b" stroke-width="7"/>';
+      s += '<ellipse cx="' + x + '" cy="188" rx="24" ry="7" fill="#94a3b8" stroke="#475569"/>';
+      s += '<path d="M' + (x - 22) + ',184 L' + (x - 40) + ',110 L' + (x + 40) + ',110 L' + (x + 22) + ',184 Z" fill="#fff" opacity=".16"/>';
+      for (var b = 0; b < 6; b++) {
+        s += '<circle cx="' + (x - 16 + b * 6.4) + '" cy="' + (176 - (b % 3) * 9) + '" r="' + (3.2 + (b % 3) * 1.3) +
+          '" fill="#fff" stroke="#93c5fd" stroke-width=".8" class="bub" style="animation-delay:' + (b * 0.32 + i * 0.22).toFixed(2) + 's"/>';
+      }
+    }
+    s += c(1, 168, 214, 170, 192);
+    s += c(2, 62, 160, 86, 186);
+    s += c(3, 340, 232, 330, 206);
+    s += c(4, 300, 96, 290, 128);
+    return s;
+  }
+
+  /* ---------------- 10. 纤维转盘过滤器 ---------------- */
+  function disk() {
+    var s = '';
+    s += '<rect x="20" y="48" width="360" height="188" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="20" y="96" width="360" height="140" fill="#cfe8f7"/>';
+    s += '<path d="M20,96 H380" stroke="#7cc7ea" stroke-width="2"/>';
+    // 中心轴
+    s += '<line x1="80" y1="140" x2="330" y2="140" stroke="#475569" stroke-width="7"/>';
+    for (var i = 0; i < 3; i++) {
+      var cx = 130 + i * 70;
+      s += '<circle cx="' + cx + '" cy="140" r="46" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>';
+      s += '<g class="spin vslow" style="transform-origin:' + cx + 'px 140px">';
+      for (var k = 0; k < 8; k++) {
+        var a = k * Math.PI / 4;
+        s += '<line x1="' + cx + '" y1="140" x2="' + (cx + Math.cos(a) * 40).toFixed(1) + '" y2="' + (140 + Math.sin(a) * 40).toFixed(1) + '" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="3 5"/>';
+      }
+      s += '</g>';
+      s += '<circle cx="' + cx + '" cy="140" r="6" fill="#475569"/>';
+    }
+    // 反洗
+    s += '<path d="M96,74 H300" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>';
+    for (var j = 0; j < 4; j++) {
+      s += '<line x1="' + (130 + j * 50) + '" y1="80" x2="' + (130 + j * 50) + '" y2="90" stroke="#38bdf8" stroke-width="2.5"/>';
+    }
+    s += arrow('M34,196 H108');
+    s += arrow('M320,110 H366');
+    s += c(1, 130, 206, 130, 186);
+    s += c(2, 340, 128, 328, 140);
+    s += c(3, 82, 62, 96, 74);
+    s += c(4, 56, 214, 34, 196);
+    s += c(5, 300, 96, 330, 108);
+    return s;
+  }
+
+  /* ---------------- 11. 隔膜计量泵 ---------------- */
+  function dosing() {
+    var s = '';
+    // 药液罐
+    s += '<rect x="30" y="150" width="86" height="76" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>';
+    s += '<rect x="30" y="178" width="86" height="48" fill="#ddd6fe"/>';
+    s += '<ellipse cx="73" cy="150" rx="43" ry="8" fill="#ede9fe" stroke="#7c3aed"/>';
+    // 泵头
+    s += '<rect x="146" y="92" width="112" height="76" rx="8" fill="#e6edf5" stroke="#475569" stroke-width="2"/>';
+    s += '<path class="pist" d="M200,100 V160" stroke="#0f766e" stroke-width="6" stroke-linecap="round"/>';
+    s += '<path d="M180,96 Q200,128 180,164" fill="none" stroke="#94a3b8" stroke-width="2"/>';
+    // 电机
+    s += '<rect x="272" y="96" width="76" height="68" rx="8" fill="#dbe4ee" stroke="#475569" stroke-width="2"/>';
+    s += '<circle cx="310" cy="130" r="20" fill="none" stroke="#64748b" stroke-width="2"/>';
+    s += '<g class="spin slow"><line x1="310" y1="130" x2="310" y2="114" stroke="#64748b" stroke-width="3"/><circle cx="310" cy="114" r="4" fill="#0f766e"/></g>';
+    // 电机轴
+    s += '<line x1="258" y1="130" x2="288" y2="130" stroke="#64748b" stroke-width="5"/>';
+    // 吸入管
+    s += '<path d="M116,206 H146 V168" fill="none" stroke="#64748b" stroke-width="9" stroke-linejoin="round"/>';
+    s += '<path d="M116,206 H146 V168" fill="none" stroke="#ddd6fe" stroke-width="4" stroke-linejoin="round"/>';
+    // 排出管
+    s += '<path d="M200,92 V56 H368" fill="none" stroke="#64748b" stroke-width="9" stroke-linejoin="round"/>';
+    s += '<path d="M200,92 V56 H368" fill="none" stroke="#ddd6fe" stroke-width="4" stroke-linejoin="round"/>';
+    s += arrow('M206,88 V60 H356', '#7c3aed');
+    // 单向阀
+    s += '<path d="M146,182 l10,-8 l0,16 z" fill="#64748b"/>';
+    s += '<path d="M200,110 l-8,-10 l16,0 z" fill="#64748b"/>';
+    // 液滴
+    s += '<circle cx="240" cy="60" r="2.6" fill="#8b5cf6" class="drop"/>';
+    s += '<circle cx="300" cy="64" r="2.6" fill="#8b5cf6" class="drop d2"/>';
+    s += c(1, 344, 84, 330, 96);
+    s += c(2, 336, 160, 316, 146);
+    s += c(3, 152, 76, 174, 100);
+    s += c(4, 118, 226, 150, 196);
+    s += c(5, 74, 132, 74, 150);
+    return s;
+  }
+
+  /* ---------------- 12. 卧螺离心脱水机 ---------------- */
+  function decanter() {
+    var s = '';
+    // 转鼓
+    s += '<path d="M112,106 H286 L340,140 L286,174 H112 Z" fill="#e6edf5" stroke="#475569" stroke-width="2.5"/>';
+    s += '<path d="M112,118 H286 L324,140 L286,162 H112 Z" fill="#cfe8f7" opacity=".7"/>';
+    // 螺旋
+    s += '<g class="auger2">';
+    s += '<path d="M124,112 L136,168 M152,112 L164,168 M180,112 L192,168 M208,112 L220,168 M236,112 L248,168 M264,112 L276,168" stroke="#0f766e" stroke-width="3" stroke-linecap="round"/>';
+    s += '</g>';
+    // 进泥管
+    s += '<path d="M40,140 H150" stroke="#64748b" stroke-width="10" stroke-linecap="round"/>';
+    s += '<path d="M40,140 H150" stroke="#bae6fd" stroke-width="5" stroke-linecap="round"/>';
+    // 差速器/电机
+    s += '<rect x="76" y="112" width="38" height="56" rx="6" fill="#dbe4ee" stroke="#475569"/>';
+    s += '<text x="95" y="145" font-size="9" fill="#475569" text-anchor="middle">电机</text>';
+    s += '<rect x="52" y="120" width="24" height="40" rx="4" fill="#94a3b8"/>';
+    // 出料
+    s += arrow('M296,186 L318,214', '#a16207');
+    s += '<text x="330" y="222" font-size="10" fill="#a16207">泥饼</text>';
+    s += arrow('M120,96 L120,70', '#0891b2');
+    s += '<text x="120" y="62" font-size="10" fill="#0891b2">滤液</text>';
+    s += c(1, 200, 190, 200, 172);
+    s += c(2, 246, 96, 240, 112);
+    s += c(3, 60, 96, 66, 120);
+    s += c(4, 88, 186, 120, 140);
+    s += c(5, 320, 176, 300, 164);
+    s += c(6, 78, 74, 120, 86);
+    return s;
+  }
+
+  /* ---------------- 13. 立式桨板搅拌机 ---------------- */
+  function paddle() {
+    var s = '';
+    s += '<rect x="26" y="40" width="348" height="196" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>';
+    s += '<rect x="26" y="92" width="348" height="144" fill="#cfe8f7"/>';
+    s += '<path d="M26,92 H374" stroke="#7cc7ea" stroke-width="2"/>';
+    // 驱动 + 减速机
+    s += '<rect x="176" y="14" width="48" height="30" rx="4" fill="#dbe4ee" stroke="#475569" stroke-width="2"/>';
+    s += t(200, 33, '电机', 9.5);
+    s += '<rect x="184" y="44" width="32" height="24" rx="3" fill="#94a3b8" stroke="#475569"/>';
+    // 搅拌轴 + 桨叶
+    s += '<line x1="200" y1="68" x2="200" y2="196" stroke="#475569" stroke-width="6"/>';
+    s += '<rect x="150" y="132" width="100" height="9" rx="3" fill="#0f766e"/>';
+    s += '<rect x="158" y="172" width="84" height="9" rx="3" fill="#0f766e" opacity=".85"/>';
+    // 旋流（缓慢旋转的虚线环）
+    s += '<ellipse class="spin vslow" cx="200" cy="160" rx="86" ry="26" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="7 9"/>';
+    // 挡板
+    s += '<rect x="44" y="100" width="8" height="120" rx="3" fill="#94a3b8"/>';
+    s += '<rect x="348" y="100" width="8" height="120" rx="3" fill="#94a3b8"/>';
+    s += c(1, 126, 34, 176, 30);
+    s += c(2, 126, 72, 184, 56);
+    s += c(3, 250, 110, 204, 108);
+    s += c(4, 300, 186, 240, 176);
+    s += c(5, 60, 232, 48, 210);
+    return s;
+  }
+
+  /* ---------------- 图元登记 ---------------- */
+  var ART = {
+    pump: { draw: pump, parts: ['叶轮（离心力来源）', '蜗壳（动能转压力）', '泵轴', '机械密封', '潜水电机', '排出管'] },
+    screen: { draw: screen, parts: ['栅条（间隙 20 mm）', '耙齿', '牵引链条', '驱动电机', '截留栅渣'] },
+    drum: { draw: drum, parts: ['转鼓', '鼓面滤网（6 mm）', '反冲洗管', '进水口', '出水口'] },
+    roots: { draw: roots, parts: ['三叶转子', '机壳', '进气口', '排气口', '同步齿轮'] },
+    blower: { draw: blower, parts: ['进气口 / 过滤器', '叶轮', '蜗壳与扩压器', '主轴', '出气口'] },
+    screw: { draw: screw, parts: ['螺旋轴', 'U 形槽', '驱动装置', '排砂口', '溢流口'] },
+    scraper: { draw: scraper, parts: ['工作桥', '中心驱动装置', '刮臂', '刮板', '中心泥斗', '出水堰'] },
+    mixer: { draw: mixer, parts: ['潜水电机', '桨叶', '导杆', '环流'] },
+    diffuser: { draw: diffuser, parts: ['曝气盘', '橡胶膜片微孔', '空气管', '气泡'] },
+    disk: { draw: disk, parts: ['滤盘', '中心轴', '反洗装置', '进水', '出水'] },
+    dosing: { draw: dosing, parts: ['驱动电机', '偏心轮 / 行程调节', '隔膜', '单向阀', '药液罐'] },
+    decanter: { draw: decanter, parts: ['转鼓', '螺旋输送器', '差速器', '进泥管', '泥饼出口', '滤液出口'] },
+    paddle: { draw: paddle, parts: ['驱动电机', '减速机', '搅拌轴', '桨叶', '挡板（防旋流）'] }
+  };
+
+  /* ---------------- 设备资料 ---------------- */
+  var INFO = {
+    pmp: {
+      art: 'pump', name: '潜水排污泵', unit: '提升泵房',
+      role: '把进厂污水提升到后续构筑物所需的高程，是全厂电耗的第二大户。',
+      principle: '叶轮高速旋转，叶轮中心的污水被甩向外缘，形成负压把水从吸入管吸进来，再沿蜗壳收集、扩压后从排出管送出。泵与电机同轴一体，直接浸没在集水池里，靠机械密封防止电机进水。',
+      faults: ['叶轮被纤维、塑料缠绕 → 流量下降、电流升高', '机械密封磨损漏水 → 电机进水烧毁', '集水池液位过低 → 气蚀、振动', '出水管路堵塞 → 泵体发热']
+    },
+    cs: {
+      art: 'screen', name: '回转式格栅除污机', unit: '粗格栅',
+      role: '拦截大块漂浮物、塑料、纤维，保护后面的水泵不被堵塞、缠绕。',
+      principle: '耙齿链在栅条间隙中循环运转：下行时耙齿插入栅缝，上行时把截留在栅面上的栅渣捞起，到顶部翻转卸料到输送机。栅距越小拦截越彻底，但栅渣量和水头损失也越大。',
+      faults: ['耙齿变形、卡在栅缝里', '链条断裂或脱轨', '栅渣堆积过多导致过载跳停', '冬季结冰卡阻']
+    },
+    fs: {
+      art: 'drum', name: '转鼓式细格栅', unit: '细格栅',
+      role: '去除毛发、纤维等细小杂物，保护后续曝气器和刮泥设备。',
+      principle: '污水从转鼓外侧进入，穿过鼓面上的滤网后从鼓内流出，杂物被截留在鼓面；转鼓缓慢旋转，把截留物带到顶部由反冲洗水冲落。滤网缝隙通常 3~10 mm。',
+      faults: ['滤网堵塞 → 栅前水位抬高', '反冲洗压力不足 → 栅面糊死', '鼓面滤网破损 → 杂物进入生化池']
+    },
+    gb: {
+      art: 'roots', name: '罗茨鼓风机', unit: '曝气沉砂池',
+      role: '给曝气沉砂池供气，让水流形成旋流，把砂粒和有机物分开。',
+      principle: '两个三叶转子在机壳内同步反向旋转，转子与转子、转子与机壳之间保持微小间隙但不接触。每转一周强制输送固定体积的空气，因此风量几乎不随压力变化，属于"容积式"风机。',
+      faults: ['皮带打滑、风量下降', '齿轮磨损导致转子咬合', '出口超压（管路堵塞）', '轴承温度过高']
+    },
+    gs: {
+      art: 'screw', name: '砂水分离器', unit: '曝气沉砂池',
+      role: '把沉砂池排出的砂水混合物分离，砂外运、水回流。',
+      principle: '砂水进入倾斜的 U 形槽，砂粒比重大沉在槽底，被螺旋叶片沿斜面向上推送到排砂口；水从槽底溢流回集水池。螺旋转速很慢，靠的是"螺旋输送"而不是离心。',
+      faults: ['螺旋被砂卡死', '溢流口带砂（分离不彻底）', 'U 形槽磨损']
+    },
+    pm: {
+      art: 'scraper', name: '中心传动刮泥机', unit: '初沉池',
+      role: '把沉到池底的初沉污泥刮向中心泥斗，再由排泥泵排走。',
+      principle: '中心驱动装置带动竖架和刮臂绕池中心缓慢旋转（一般 1~3 圈/小时），刮板把池底污泥沿径向推向中心集泥坑；水面浮渣由撇渣板收集。',
+      faults: ['刮臂扭矩超限（池底积泥太厚）', '刮板变形、脱落', '中心轴承缺油', '导轨磨损导致跑偏']
+    },
+    an: {
+      art: 'mixer', name: '潜水搅拌器', unit: '厌氧池',
+      role: '让厌氧区的泥水充分混合，防止污泥沉积，同时不把氧气带进来。',
+      principle: '潜水电机直接驱动桨叶，产生大流量、低扬程的环流，把池底污泥卷起来。厌氧区一般按 2~4 W/m³ 配置搅拌功率，只搅拌不曝气，DO 要控制在 0.2 mg/L 以下。',
+      faults: ['桨叶缠绕纤维', '机械密封失效进水', '导杆松动、机体振动', '搅拌不足导致池底积泥']
+    },
+    ax: {
+      art: 'mixer', name: '潜水搅拌器', unit: '缺氧池',
+      role: '让回流混合液与进水充分接触，为反硝化菌提供碳源和硝态氮。',
+      principle: '与厌氧池搅拌器相同，但缺氧区还要兼顾内回流带来的溶解氧，搅拌强度要保证泥水不沉降又不能把 DO 搅得太高。',
+      faults: ['搅拌不均形成死区', '叶轮缠绕', '密封漏水', '与内回流射流相互干扰']
+    },
+    bl: {
+      art: 'blower', name: '离心鼓风机', unit: '好氧池',
+      role: '为好氧池提供氧气，是全厂第一大电耗设备（约占总电耗一半）。',
+      principle: '高速旋转的叶轮把空气加速，气体在蜗壳和扩压器中减速升压后送入曝气总管。风量靠进口导叶或变频调节，风压取决于曝气器淹没水深和管路阻力。',
+      faults: ['喘振（风量过小、压力过高）', '进口滤网堵塞 → 风量不足', '轴承/油温高', '导叶卡涩、变频器故障']
+    },
+    ad: {
+      art: 'diffuser', name: '微孔曝气器', unit: '好氧池',
+      role: '把鼓风机送来的空气打成微小气泡，提高氧转移效率。',
+      principle: '空气通过橡胶膜片上的微孔（约 1~2 mm）形成细小气泡，气泡上升过程中把氧气溶入水中。膜片在停气时靠水压自闭，防止污泥倒灌进管道。',
+      faults: ['膜片老化、撕裂 → 大气泡、氧利用率下降', '微孔堵塞 → 曝气不均', '管道积水', '曝气器脱落']
+    },
+    ir: {
+      art: 'pump', name: '混合液回流泵', unit: '好氧池',
+      role: '把好氧池末端含硝态氮的混合液送回缺氧池，是脱氮的前提。',
+      principle: '低扬程、大流量的轴流/混流泵，通常装在池壁或导流筒内。内回流比一般 200%~400%，回流比越大脱氮越彻底，但泵的能耗和带入缺氧区的溶解氧也越多。',
+      faults: ['叶轮磨损、流量下降 → TN 升高', '泵体堵塞', '导流筒密封失效', '回流比调节不当']
+    },
+    cl: {
+      art: 'scraper', name: '周边传动刮吸泥机', unit: '二沉池',
+      role: '收集二沉池底部的活性污泥并排出，同时撇除水面浮渣。',
+      principle: '周边驱动装置带动桥架绕中心缓慢旋转，刮臂把污泥刮向中心泥斗，再由吸泥管和回流泵抽走。周边线速度一般 2~4 m/min，太快会把污泥搅起来。',
+      faults: ['啃轨、跑偏（轮压不均）', '吸泥管堵塞', '刮板脱落', '驱动轮打滑']
+    },
+    rp: {
+      art: 'pump', name: '污泥回流泵', unit: '二沉池',
+      role: '把二沉池污泥送回生化池，维持池内 MLSS。',
+      principle: '离心泵或轴流泵，把含水率 99.2% 左右的回流污泥提升后送回厌氧池。回流比 R 一般 50%~100%，R 太小 MLSS 会掉，R 太大会把硝态氮带进厌氧区、抑制除磷。',
+      faults: ['叶轮缠绕 → 回流量下降、MLSS 降低', '泵体气蚀', '回流比失调', '管路堵塞']
+    },
+    ws: {
+      art: 'pump', name: '剩余污泥泵', unit: '二沉池',
+      role: '按泥龄要求排出剩余污泥，控制 SRT 和 MLSS。',
+      principle: '每天排出的污泥量 = 污泥总存量 ÷ SRT。排多了 SRT 变短、硝化菌被洗出；排少了 MLSS 升高、二沉池固体负荷超限。',
+      faults: ['泵体堵塞', '流量计量不准 → SRT 失控', '排泥浓度过低（含水率过高）']
+    },
+    tm: {
+      art: 'paddle', name: '混凝搅拌机', unit: '高效沉淀池',
+      role: '让 PAC 与污水快速混合，使药剂均匀分散。',
+      principle: '快速搅拌（G 值 500~1000 s⁻¹）使混凝剂瞬间分散，随后在絮凝区慢速搅拌（G 值 30~80 s⁻¹）让絮体长大。搅拌强度过大反而会把絮体打碎。',
+      faults: ['桨叶脱落', '减速机漏油', '转速不当导致絮体破碎或混合不均']
+    },
+    ts: {
+      art: 'scraper', name: '浓缩刮泥机', unit: '高效沉淀池',
+      role: '把化学污泥浓缩后刮到泥斗排出。',
+      principle: '刮臂缓慢旋转，把沉淀的化学污泥刮向中心泥斗；池底还有浓缩栅条，帮助污泥进一步压缩脱水。',
+      faults: ['扭矩超限', '刮板变形', '排泥不畅导致污泥上浮']
+    },
+    pp: {
+      art: 'dosing', name: 'PAC 计量泵', unit: '高效沉淀池',
+      role: '定量投加聚合氯化铝，化学除磷和助凝。',
+      principle: '隔膜式计量泵：电机带动偏心轮，通过连杆推动隔膜往复运动，靠进出口两个单向阀实现定量吸液和排液；冲程长度决定投加量。',
+      faults: ['单向阀被结晶堵塞', '隔膜破裂 → 药液进入传动箱', '投加量漂移', '药液罐液位低']
+    },
+    bw: {
+      art: 'pump', name: '反冲洗泵', unit: '反硝化滤池',
+      role: '定期反冲洗滤池，把截留的悬浮物和老化生物膜冲走。',
+      principle: '反冲洗时滤池停止进水，反冲洗泵把清水从滤层底部向上顶托，使滤料流化、杂质被冲出。反冲洗强度和时间决定滤池能否长期稳定运行。',
+      faults: ['反冲洗压力不足 → 滤层板结', '滤料流失', '反冲洗周期设置不当']
+    },
+    np: {
+      art: 'dosing', name: '乙酸钠计量泵', unit: '反硝化滤池',
+      role: '碳源不足时向反硝化滤池投加乙酸钠，保证 TN 达标。',
+      principle: '隔膜计量泵定量投加。每 1 mg/L 乙酸钠约可去除 0.17 mg/L 硝态氮，投加量按进水 TN 和出水要求计算，过量投加会导致出水 COD 升高。',
+      faults: ['低温结晶堵塞管路', '投加过量 → 出水 COD 超标', '计量泵冲程漂移']
+    },
+    fd: {
+      art: 'disk', name: '纤维转盘过滤器', unit: '滤布滤池',
+      role: '深度过滤，把出水 SS 从 10~15 mg/L 降到 5 mg/L 以下。',
+      principle: '水穿过滤盘两侧的纤维滤布，悬浮物被截留在滤布表面；滤盘缓慢旋转，转到顶部反洗区时被反洗抽吸口吸走滤饼，实现连续过滤、在线反洗。',
+      faults: ['滤布破损 → SS 穿透', '反洗不畅 → 滤盘堵塞、水位差增大', '中心轴密封漏水', '驱动链条断裂']
+    },
+    dp: {
+      art: 'dosing', name: '次氯酸钠计量泵', unit: '次氯酸钠消毒',
+      role: '投加消毒剂，灭活粪大肠菌群等致病微生物。',
+      principle: '次氯酸钠水解生成次氯酸，破坏细菌细胞壁和酶系统。消毒效果由 CT 值（余氯浓度 × 接触时间）决定，一般接触 30 min、余氯 0.2~0.5 mg/L。',
+      faults: ['药剂结晶堵塞', '投加量不足 → 粪大肠菌群超标', '投加过量 → 余氯超标、生成消毒副产物']
+    },
+    dw: {
+      art: 'decanter', name: '卧螺离心脱水机', unit: '污泥浓缩 · 脱水',
+      role: '把浓缩后的污泥脱成含水率 80% 的泥饼，减量化外运。',
+      principle: '转鼓高速旋转（2500~3500 r/min）产生上千倍重力的离心力，比重大的泥粒被甩到鼓壁；螺旋以略快/略慢于转鼓的差速旋转，把泥饼推向锥端排出，清液从另一端溢流。',
+      faults: ['差速器故障 → 不出泥或堵机', '絮凝不良 → 滤液带泥、含水率升高', '振动超标（动平衡破坏）', '螺旋磨损']
+    },
+    dpm: {
+      art: 'dosing', name: 'PAM 加药泵', unit: '污泥浓缩 · 脱水',
+      role: '投加聚丙烯酰胺，让细小污泥絮凝成大絮团，提高脱水效果。',
+      principle: 'PAM 长链分子吸附在多个污泥颗粒上，把细颗粒"桥连"成大絮团，便于离心机分离。投加量一般 2~4 kg/tDS，过量反而会黏附设备。',
+      faults: ['干粉结块堵塞', '稀释浓度不准', '投加过量 → 泥饼黏、离心机振动']
+    }
+  };
+
+  var ORDER = ['pmp', 'cs', 'fs', 'gb', 'gs', 'pm', 'an', 'ax', 'bl', 'ad', 'ir', 'cl', 'rp', 'ws', 'tm', 'ts', 'pp', 'bw', 'np', 'fd', 'dp', 'dw', 'dpm'];
+
+  function render(id, still) {
+    var info = INFO[id];
+    if (!info) return '';
+    var art = ART[info.art];
+    return '<svg class="eqsvg' + (still ? ' still' : '') + '" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">' +
+      art.draw() + '</svg>';
+  }
+
+  function parts(id) {
+    var info = INFO[id];
+    return info ? ART[info.art].parts : [];
+  }
+
+  return { INFO: INFO, ORDER: ORDER, render: render, parts: parts };
+})();
+</script>
+<script>/* ==========================================================================
+   污水厂 A²/O 工艺模拟器 —— 界面与交互
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  window.onerror = function (msg, src, line) {
+    var b = document.getElementById('errbar');
+    if (b) { b.style.display = 'block'; b.textContent = '运行错误：' + msg + ' (行 ' + line + ')'; }
+  };
+
+  var D = WW.DEFAULTS;
+  var P = Object.assign({}, D);
+  var R = WW.simulate(P);
+  var sel = 'aerobic';
+  var tab = 'table';
+  var scenario = 'design';
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  function fmt(v, d) {
+    if (v === null || v === undefined || !isFinite(v)) return '—';
+    if (d === undefined) d = 1;
+    if (Math.abs(v) >= 10000) return Math.round(v).toLocaleString('zh-CN');
+    return v.toFixed(d);
+  }
+  function pct(v, d) { return (v * 100).toFixed(d === undefined ? 0 : d) + '%'; }
+  function fmtInt(v) { return (v === null || v === undefined || !isFinite(v)) ? '—' : Math.round(v).toLocaleString('zh-CN'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ------------------------------------------------------------ 流程几何 */
+  var NODES = [
+    { id: 'influent', x: 16, y: 94, w: 92, h: 44, pill: true, n: 1, name: '进水' },
+    { id: 'coarse', x: 150, y: 64, w: 118, h: 104, n: 2, name: '粗格栅' },
+    { id: 'pump', x: 402, y: 64, w: 118, h: 104, n: 2, name: '提升泵房' },
+    { id: 'fine', x: 654, y: 64, w: 118, h: 104, n: 2, name: '细格栅' },
+    { id: 'grit', x: 906, y: 64, w: 128, h: 104, n: 2, name: '曝气沉砂池' },
+    { id: 'primary', x: 1168, y: 64, w: 128, h: 104, n: 2, name: '初沉池' },
+    { id: 'anaerobic', x: 150, y: 290, w: 200, h: 176, n: 3, name: '厌氧池' },
+    { id: 'anoxic', x: 420, y: 290, w: 210, h: 176, n: 3, name: '缺氧池' },
+    { id: 'aerobic', x: 700, y: 290, w: 330, h: 176, n: 4, name: '好氧池' },
+    { id: 'clarifier', x: 1100, y: 290, w: 240, h: 176, n: 3, name: '二沉池' },
+    { id: 'tertiary', x: 150, y: 558, w: 210, h: 136, n: 3, name: '高效沉淀池' },
+    { id: 'dnfilter', x: 420, y: 558, w: 210, h: 136, n: 3, name: '反硝化滤池' },
+    { id: 'filter', x: 690, y: 558, w: 190, h: 136, n: 2, name: '滤布滤池' },
+    { id: 'disinfection', x: 940, y: 558, w: 200, h: 136, n: 2, name: '次氯酸钠消毒' },
+    { id: 'out', x: 1200, y: 602, w: 100, h: 48, pill: true, n: 1, name: '出水' },
+    { id: 'sludge', x: 150, y: 800, w: 200, h: 112, n: 2, name: '污泥浓缩池' },
+    { id: 'dewater', x: 430, y: 800, w: 230, h: 112, n: 2, name: '污泥脱水机房' },
+    { id: 'cake', x: 730, y: 832, w: 150, h: 48, pill: true, n: 1, name: '泥饼外运' }
+  ];
+
+  var PIPES = [
+    { d: 'M108,116 H150', cls: 'w', mk: 'aW' },
+    { d: 'M268,116 H402', cls: 'w', mk: 'aW' },
+    { d: 'M520,116 H654', cls: 'w', mk: 'aW' },
+    { d: 'M772,116 H906', cls: 'w', mk: 'aW' },
+    { d: 'M1034,116 H1168', cls: 'w', mk: 'aW' },
+    { d: 'M1232,168 V232 H250 V290', cls: 'w', mk: 'aW', label: '初沉出水', lx: 640, ly: 224 },
+    { d: 'M350,378 H420', cls: 'w', mk: 'aW' },
+    { d: 'M630,378 H700', cls: 'w', mk: 'aW' },
+    { d: 'M1030,378 H1100', cls: 'w', mk: 'aW', label: '混合液', lx: 1065, ly: 370 },
+    { d: 'M1220,466 V520 H250 V558', cls: 'w', mk: 'aW', label: '二沉出水', lx: 640, ly: 512 },
+    { d: 'M360,626 H420', cls: 'w', mk: 'aW' },
+    { d: 'M630,626 H690', cls: 'w', mk: 'aW' },
+    { d: 'M880,626 H940', cls: 'w', mk: 'aW' },
+    { d: 'M1140,626 H1200', cls: 'w', mk: 'aW' },
+    { d: 'M1300,626 H1408', cls: 'w', mk: 'aW', label: '达标排放', lx: 1352, ly: 616 },
+    { d: 'M1340,378 H1440 V745', cls: 's', mk: 'aS', label: '剩余污泥', lx: 1452, ly: 560, rot: true },
+    { d: 'M1290,168 V206 H1580 V745', cls: 's', mk: 'aS', label: '初沉污泥', lx: 1592, ly: 330, rot: true },
+    { d: 'M1580,745 H250 V800', cls: 's', mk: 'aS' },
+    { d: 'M350,856 H430', cls: 's', mk: 'aS' },
+    { d: 'M660,856 H730', cls: 's', mk: 'aS' }
+  ];
+
+  var DOSES = [
+    { x: 150, y: 700, w: 170, h: 34, label: 'PAC / PAM 加药', arrow: 'M235,700 V694' },
+    { x: 420, y: 700, w: 160, h: 34, label: '乙酸钠投加（备用）', arrow: 'M500,700 V694' }
+  ];
+
+  /* ------------------------------------------------------------ 节点文案 */
+  function nodeInfo(id) {
+    var u = R.u, e = R.effluent;
+    switch (id) {
+      case 'influent': return { t: '进水', l: [fmt(P.Q / 10000, 1) + ' 万 m³/d'] };
+      case 'coarse': return { l: ['栅距 ' + P.cs_gap + ' mm', 'SS ' + fmt(u.coarse.rs * 100, 1) + '%'] };
+      case 'pump': return { l: ['扬程 ' + P.pp_H + ' m', fmt(u.pump.kw, 0) + ' kW'] };
+      case 'fine': return { l: ['栅距 ' + P.fs_gap + ' mm', 'SS ' + fmt(u.fine.rs * 100, 1) + '%'] };
+      case 'grit': return { l: ['HRT ' + fmt(u.grit.hrt, 1) + ' min', '沉砂 ' + fmt(u.grit.grit, 1) + ' m³/d'] };
+      case 'primary': return { l: ['q ' + fmt(u.primary.q, 2), 'SS ' + fmt(u.primary.ssIn, 0) + '→' + fmt(R.streams[5].SS, 0)] };
+      case 'anaerobic': return { l: ['HRT ' + P.an_hrt + ' h', '释磷 ' + fmt(u.anaerobic.pRel, 2) + ' mg/L', 'NO₃⁻ ' + fmt(u.anaerobic.no3Ana, 1) + ' mg/L'] };
+      case 'anoxic': return { l: ['HRT ' + P.ax_hrt + ' h · 内回流 ' + P.ax_r + '%', '去除 ' + fmt(u.anoxic.removed, 0) + ' kgN/d', '出水 NO₃⁻ ' + fmt(u.anoxic.no3Out, 1) + ' mg/L'] };
+      case 'aerobic': return { l: ['HRT ' + fmt(u.aerobic.hrt, 1) + ' h · MLSS ' + fmt(u.aerobic.mlss * 1000, 0) + ' mg/L', 'SRT ' + P.ae_srt + ' d · DO ' + fmt(P.ae_do, 1) + ' mg/L', '硝化率 ' + fmt(u.aerobic.fNit * 100, 0) + ' % · 风量 ' + fmt(u.aerobic.air / 10000, 1) + ' 万 m³/d'] };
+      case 'clarifier': return { l: ['q ' + fmt(u.clarifier.q, 2) + ' m³/(m²·h) · R ' + P.cl_R + '%', '固体负荷 ' + fmt(u.clarifier.slr, 0) + ' kg/(m²·d)', '出水 SS ' + fmt(u.clarifier.ssOut, 1) + ' mg/L'] };
+      case 'tertiary': return { l: ['PAC ' + P.tp_pac + ' mg/L', '出水 TP ' + fmt(u.tertiary.tpOut, 2), '出水 SS ' + fmt(u.tertiary.ssOut, 1)] };
+      case 'dnfilter': return { l: ['乙酸钠 ' + P.df_naac + ' mg/L', 'NO₃⁻ ' + fmt(u.dnfilter.no3In, 1) + '→' + fmt(u.dnfilter.no3Out, 1)] };
+      case 'filter': return { l: ['滤速 ' + P.fl_rate + ' m/h', '出水 SS ' + fmt(u.filter.ssOut, 1)] };
+      case 'disinfection': return { l: ['有效氯 ' + fmt(P.di_dose, 1) + ' mg/L', '粪大肠菌 ' + fmt(u.disinfection.fc, 0)] };
+      case 'out': return { t: '出水', l: [R.pass ? '一级 A 达标' : '未达标'] };
+      case 'sludge': return { l: ['干泥 ' + fmt(u.sludge.ds / 1000, 1) + ' tDS/d', '浓缩至 ' + P.sl_thick + '%'] };
+      case 'dewater': return { l: ['泥饼 ' + fmt(u.sludge.cake, 1) + ' t/d', '含水率 ' + P.sl_cake + '%'] };
+      case 'cake': return { t: '泥饼外运', l: [fmt(u.sludge.cake, 1) + ' t/d'] };
+      default: return { l: [] };
+    }
+  }
+
+  function catColor(id) {
+    if (id === 'out') return '#0891b2';
+    if (id === 'sludge' || id === 'dewater' || id === 'cake') return '#b45309';
+    var u = unitById(id);
+    return u ? WW.CATS[u.cat].color : '#475569';
+  }
+
+  function statusOf(id) {
+    var u = R.u;
+    if (id === 'out' || id === 'cake') return R.pass ? 'ok' : 'bad';
+    if (u[id] && u[id].eq && u[id].eq.some(function (e) { return e.load !== null && e.load > 1.02; })) return 'bad';
+    if (id === 'aerobic') return u.aerobic.fNit < 0.9 ? 'bad' : (u.aerobic.alkLeft < 50 ? 'warn' : 'ok');
+    if (id === 'anoxic') return R.effluent.TN > 15 ? 'bad' : (u.anoxic.capC < u.anoxic.capK ? 'warn' : 'ok');
+    if (id === 'clarifier') return u.clarifier.slr > P.cl_slr ? 'bad' : (u.clarifier.ssOut > 18 ? 'warn' : 'ok');
+    if (id === 'tertiary') return R.effluent.TP > 0.5 ? 'bad' : (u.tertiary.pac < 10 ? 'warn' : 'ok');
+    if (id === 'dnfilter') return R.effluent.TN > 15 ? 'bad' : 'ok';
+    if (id === 'anaerobic') return P.an_do > 0.5 ? 'bad' : (u.anaerobic.no3Ana > 6 ? 'warn' : 'ok');
+    if (id === 'disinfection') return R.effluent && u.disinfection.fc > 1000 ? 'bad' : 'ok';
+    if (id === 'dewater' || id === 'sludge') return 'ok';
+    return 'ok';
+  }
+
+  /* ------------------------------------------------------------ 流程图绘制 */
+  function buildDiagram() {
+    var s = '<svg id="flow" viewBox="0 0 1680 980" preserveAspectRatio="xMidYMid meet">';
+    s += '<defs>' +
+      '<marker id="aW" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#93c5fd"/></marker>' +
+      '<marker id="aS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/></marker>' +
+      '<marker id="aR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/></marker>' +
+      '<marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a78bfa"/></marker>' +
+      '</defs>';
+
+    s += '<g class="pipes">';
+    PIPES.forEach(function (p) {
+      s += '<path class="pipe ' + p.cls + '" d="' + p.d + '" marker-end="url(#' + p.mk + ')"/>';
+      s += '<path class="flow ' + p.cls + '" d="' + p.d + '"/>';
+    });
+    s += '</g>';
+
+    PIPES.forEach(function (p) {
+      if (!p.label) return;
+      var tr = p.rot ? ' transform="rotate(-90 ' + p.lx + ' ' + p.ly + ')"' : '';
+      s += '<text class="plabel" x="' + p.lx + '" y="' + p.ly + '"' + tr + '>' + p.label + '</text>';
+    });
+
+    DOSES.forEach(function (d) {
+      s += '<g class="dose">';
+      s += '<rect x="' + d.x + '" y="' + d.y + '" width="' + d.w + '" height="' + d.h + '" rx="8"/>';
+      s += '<text x="' + (d.x + d.w / 2) + '" y="' + (d.y + 22) + '">' + d.label + '</text>';
+      s += '</g>';
+      s += '<path class="flow c" d="' + d.arrow + '" marker-end="url(#aC)"/>';
+    });
+
+    NODES.forEach(function (n) {
+      var cx = n.w / 2;
+      var titleY = n.pill ? 20 : (n.h > 150 ? 30 : 26);
+      var lineY = n.pill ? 37 : (n.h > 150 ? 56 : 50);
+      var step = n.h > 150 ? 24 : 20;
+      var cls = n.pill ? 'node pill' : 'node';
+      s += '<g class="' + cls + '" data-id="' + n.id + '" transform="translate(' + n.x + ',' + n.y + ')">';
+      if (!n.pill) s += '<rect class="card" width="' + n.w + '" height="' + n.h + '" rx="10"/>';
+      else s += '<rect class="card" width="' + n.w + '" height="' + n.h + '" rx="' + (n.h / 2) + '"/>';
+      if (!n.pill) s += '<rect class="bar" width="' + n.w + '" height="4" rx="2" fill="' + catColor(n.id) + '"/>';
+      s += '<text class="nt" x="' + cx + '" y="' + titleY + '">' + n.name + '</text>';
+      for (var i = 0; i < n.n; i++) {
+        s += '<text class="nl" x="' + cx + '" y="' + (lineY + i * step) + '" data-m="' + n.id + ':' + i + '"></text>';
+      }
+      if (!n.pill) s += '<circle class="st" cx="' + (n.w - 11) + '" cy="13" r="3.5"/>';
+      s += '</g>';
+    });
+    s += '</svg>';
+    $('#diagram').innerHTML = s;
+  }
+
+  function updateDiagram() {
+    NODES.forEach(function (n) {
+      var g = $('.node[data-id="' + n.id + '"]');
+      if (!g) return;
+      var info = nodeInfo(n.id);
+      var texts = $$('text.nl', g);
+      for (var i = 0; i < texts.length; i++) texts[i].textContent = info.l[i] || '';
+      var st = $('.st', g);
+      if (st) st.setAttribute('class', 'st ' + statusOf(n.id));
+      g.classList.toggle('sel', n.id === sel);
+    });
+  }
+
+  /* ------------------------------------------------------------ 参数面板 */
+  function unitById(id) {
+    for (var i = 0; i < WW.UNITS.length; i++) if (WW.UNITS[i].id === id) return WW.UNITS[i];
+    return null;
+  }
+
+  function readoutRows(u) {
+    var x = R.u, r = [];
+    switch (u.id) {
+      case 'influent':
+        r.push(['设计规模', fmt(P.Qd, 0), 'm³/d']);
+        r.push(['实际处理量', fmt(P.Q, 0), 'm³/d']);
+        r.push(['负荷率', fmt(P.Q / P.Qd * 100, 0), '%']);
+        r.push(['峰值流量', fmt(P.Q * P.Kz, 0), 'm³/d']);
+        r.push(['BOD/COD', fmt(P.iBOD / P.iCOD, 2), '']);
+        r.push(['TN 负荷', fmt(P.iTN * P.Q / 1000, 0), 'kg/d']);
+        break;
+      case 'coarse':
+        r.push(['实际 SS 去除率', fmt(x.coarse.rs * 100, 1), '%']);
+        r.push(['栅渣量', fmt(x.coarse.screenings, 1), 'm³/d']);
+        r.push(['水头损失', fmt(P.cs_loss, 2), 'm']);
+        r.push(['过栅流速', fmt(P.cs_v, 2), 'm/s']);
+        break;
+      case 'pump':
+        r.push(['轴功率', fmt(x.pump.kw, 1), 'kW']);
+        r.push(['日耗电', fmt(x.pump.kwh, 0), 'kWh/d']);
+        r.push(['吨水电耗', fmt(x.pump.perM3, 4), 'kWh/m³']);
+        r.push(['单泵流量', fmt(x.pump.single, 0), 'm³/d']);
+        break;
+      case 'fine':
+        r.push(['实际 SS 去除率', fmt(x.fine.rs * 100, 1), '%']);
+        r.push(['栅渣量', fmt(x.fine.screenings, 1), 'm³/d']);
+        r.push(['水头损失', fmt(P.fs_loss, 2), 'm']);
+        break;
+      case 'grit':
+        r.push(['池容', fmt(x.grit.V, 0), 'm³']);
+        r.push(['实际 HRT', fmt(x.grit.hrt, 1), 'min']);
+        r.push(['曝气量', fmt(x.grit.air, 0), 'm³/d']);
+        r.push(['沉砂量', fmt(x.grit.grit, 1), 'm³/d']);
+        break;
+      case 'primary':
+        r.push(['沉淀面积', fmt(x.primary.area, 0), 'm²']);
+        r.push(['池容', fmt(x.primary.V, 0), 'm³']);
+        r.push(['实际表面负荷', fmt(x.primary.q, 2), 'm³/(m²·h)']);
+        r.push(['实际 SS 去除率', fmt(x.primary.rsSS * 100, 1), '%']);
+        r.push(['初沉干泥', fmt(x.primary.ds / 1000, 2), 'tDS/d']);
+        r.push(['污泥体积', fmt(x.primary.vol, 0), 'm³/d']);
+        break;
+      case 'anaerobic':
+        r.push(['池容', fmt(x.anaerobic.V, 0), 'm³']);
+        r.push(['实际 HRT', fmt(x.anaerobic.V / P.Q * 24, 2), 'h']);
+        r.push(['释磷量', fmt(x.anaerobic.pRel, 2), 'mg/L']);
+        r.push(['厌氧区 NO₃⁻', fmt(x.anaerobic.no3Ana, 1), 'mg/L']);
+        r.push(['折算 TP', fmt(x.anaerobic.tpHyd, 2), 'mg/L']);
+        r.push(['吸磷效率', fmt(x.anaerobic.pEta * 100, 0), '%']);
+        break;
+      case 'anoxic':
+        r.push(['池容', fmt(x.anoxic.V, 0), 'm³']);
+        r.push(['实际 HRT', fmt(x.anoxic.V / P.Q * 24, 2), 'h']);
+        r.push(['碳源限制能力', fmt(x.anoxic.capC, 0), 'kgN/d']);
+        r.push(['动力学能力', fmt(x.anoxic.capK, 0), 'kgN/d']);
+        r.push(['实际去除', fmt(x.anoxic.removed, 0), 'kgN/d']);
+        r.push(['限制因素', x.anoxic.limited, '']);
+        r.push(['出水 NO₃⁻', fmt(x.anoxic.no3Out, 1), 'mg/L']);
+        break;
+      case 'aerobic':
+        r.push(['池容', fmt(x.aerobic.V, 0), 'm³']);
+        r.push(['实际 HRT', fmt(x.aerobic.V / P.Q * 24, 2), 'h']);
+        r.push(['MLSS', fmt(x.aerobic.mlss * 1000, 0), 'mg/L']);
+        r.push(['最低硝化泥龄', fmt(x.aerobic.srtMin, 1), 'd']);
+        r.push(['硝化率', fmt(x.aerobic.fNit * 100, 1), '%']);
+        r.push(['剩余碱度', fmt(x.aerobic.alkLeft, 0), 'mg/L']);
+        r.push(['需氧量 AOR', fmt(x.aerobic.aor, 0), 'kgO₂/d']);
+        r.push(['标准氧 SOR', fmt(x.aerobic.sor, 0), 'kgO₂/d']);
+        r.push(['风量', fmt(x.aerobic.air, 0), 'm³/d']);
+        r.push(['鼓风机功率', fmt(x.aerobic.kw, 0), 'kW']);
+        break;
+      case 'clarifier':
+        r.push(['沉淀面积', fmt(x.clarifier.area, 0), 'm²']);
+        r.push(['实际表面负荷', fmt(x.clarifier.q, 2), 'm³/(m²·h)']);
+        r.push(['固体负荷', fmt(x.clarifier.slr, 0), 'kg/(m²·d)']);
+        r.push(['回流污泥浓度', fmt(x.clarifier.xr, 1), 'g/L']);
+        r.push(['回流量', fmt(x.clarifier.v, 0), 'm³/d']);
+        r.push(['出水 SS', fmt(x.clarifier.ssOut, 1), 'mg/L']);
+        break;
+      case 'tertiary':
+        r.push(['沉淀面积', fmt(x.tertiary.area, 0), 'm²']);
+        r.push(['实际表面负荷', fmt(x.tertiary.q, 2), 'm³/(m²·h)']);
+        r.push(['出水 TP', fmt(x.tertiary.tpOut, 2), 'mg/L']);
+        r.push(['除磷率', fmt(x.tertiary.tpRem * 100, 1), '%']);
+        r.push(['化学污泥', fmt(x.tertiary.ds, 0), 'kgDS/d']);
+        break;
+      case 'dnfilter':
+        r.push(['过滤面积', fmt(x.dnfilter.area, 0), 'm²']);
+        r.push(['进水 NO₃⁻', fmt(x.dnfilter.no3In, 1), 'mg/L']);
+        r.push(['出水 NO₃⁻', fmt(x.dnfilter.no3Out, 1), 'mg/L']);
+        r.push(['去除量', fmt(x.dnfilter.removed, 0), 'kgN/d']);
+        break;
+      case 'filter':
+        r.push(['过滤面积', fmt(x.filter.area, 0), 'm²']);
+        r.push(['出水 SS', fmt(x.filter.ssOut, 1), 'mg/L']);
+        break;
+      case 'disinfection':
+        r.push(['灭活对数', fmt(x.disinfection.logRem, 1), 'log']);
+        r.push(['出水粪大肠菌群', fmt(x.disinfection.fc, 0), '个/L']);
+        r.push(['CT 值', fmt(P.di_dose * P.di_ct, 0), 'mg·min/L']);
+        break;
+      case 'sludge':
+        r.push(['总干泥', fmt(x.sludge.ds / 1000, 2), 'tDS/d']);
+        r.push(['初沉污泥', fmt(x.sludge.dsPrimary / 1000, 2), 'tDS/d']);
+        r.push(['剩余污泥', fmt(x.sludge.dsBio / 1000, 2), 'tDS/d']);
+        r.push(['化学污泥', fmt(x.sludge.dsChem / 1000, 2), 'tDS/d']);
+        r.push(['浓缩后体积', fmt(x.sludge.thickVol, 0), 'm³/d']);
+        r.push(['PAM 用量', fmt(x.sludge.pam, 1), 'kg/d']);
+        break;
+      case 'cost':
+        r.push(['电费', fmt(R.cost.elec, 3), '元/m³']);
+        r.push(['药剂费', fmt(R.cost.chem, 3), '元/m³']);
+        r.push(['污泥处置', fmt(R.cost.sludge, 3), '元/m³']);
+        r.push(['固定成本', fmt(R.cost.fixed, 3), '元/m³']);
+        r.push(['合计', fmt(R.cost.total, 3), '元/m³']);
+        break;
+    }
+    return r;
+  }
+
+  function buildPanel() {
+    var u = unitById(sel);
+    if (!u) return;
+    var cat = WW.CATS[u.cat];
+    var h = '<div class="ph">';
+    h += '<div class="pcat" style="--c:' + cat.color + '">' + cat.name + '</div>';
+    h += '<h2>' + u.name + '</h2>';
+    h += '<p>' + u.desc + '</p>';
+    h += '</div>';
+
+    h += '<div class="reads" id="reads"></div>';
+    if (R.u[u.id] && R.u[u.id].eq) h += equipSection(u);
+    h += '<div class="params" id="params">';
+
+    var groups = [];
+    u.params.forEach(function (p) { if (!p.eq && groups.indexOf(p.g) < 0) groups.push(p.g); });
+    groups.forEach(function (g) {
+      h += '<div class="pgroup"><div class="pgt">' + g + '</div>';
+      u.params.filter(function (p) { return p.g === g; }).forEach(function (p) {
+        if (p.type === 'switch') {
+          h += '<div class="prow">' +
+            '<div class="ptop"><span class="plabel">' + p.label + '</span></div>' +
+            '<button class="pbtn" data-sw="' + p.k + '">' + (P[p.k] ? '已开启' : '未开启') + '</button>' +
+            (p.hint ? '<div class="phint">' + p.hint + '</div>' : '') +
+            '</div>';
+        } else {
+          var dec = p.dec || 0;
+          h += '<div class="prow">' +
+            '<div class="ptop"><span class="plabel">' + p.label + '</span><span class="pval" data-v="' + p.k + '">' + fmt(P[p.k], dec) + '</span><span class="punit">' + (p.unit || '') + '</span></div>' +
+            '<input class="prange" type="range" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" value="' + P[p.k] + '" data-k="' + p.k + '" data-dec="' + dec + '">' +
+            (p.hint ? '<div class="phint">' + p.hint + '</div>' : '') +
+            '</div>';
+        }
+      });
+      h += '</div>';
+    });
+    h += '</div>';
+    h += '<button class="btn ghost" id="btn-unit-reset">恢复本单元默认值</button>';
+    $('#panel').innerHTML = h;
+    $('#panel').scrollTop = 0;
+    updateReadouts();
+  }
+
+  /* ---- 配套设备卡片 ---- */
+  function equipQty(e) {
+    return e.p > 0 ? (e.n + ' 用' + (e.ns ? ' ' + e.ns + ' 备' : '')) : (fmt(e.n, 0) + ' ' + e.unit);
+  }
+
+  function equipCard(u, e) {
+    var fields = e.fields.map(function (k) {
+      var p = u.params.filter(function (x) { return x.k === k; })[0];
+      if (!p) return '';
+      return '<label class="eqf"><span>' + p.label + '</span><input type="number" data-k="' + k +
+        '" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" value="' + P[k] + '"><i>' + (p.unit || '') + '</i></label>';
+    }).join('');
+    var h = '<div class="eqcard">';
+    h += '<div class="eqh"><span class="eqn">' + e.name + '</span><span class="eqc" data-eq-qty="' + e.id + '">' + equipQty(e) + '</span></div>';
+    if (e.load !== null) {
+      h += '<div class="eqline"><span>额定 <b data-eq-cap="' + e.id + '">' + fmtInt(e.cap) + '</b> ' + e.unit + '</span>' +
+        '<span>需求 <b data-eq-dem="' + e.id + '">' + fmtInt(e.dem) + '</b> ' + e.unit + '</span></div>';
+      h += '<div class="eqbar"><i data-eq-bar="' + e.id + '" style="width:' + Math.min(100, Math.max(2, e.load * 100)) + '%"></i></div>';
+    }
+    h += '<div class="eqfoot"><span data-eq-load="' + e.id + '">' +
+      (e.load === null ? '固定工况' : '负荷率 ' + fmt(e.load * 100, 0) + '%') +
+      '</span><span data-eq-kw="' + e.id + '">' + (e.kw > 0 ? '运行 ' + fmt(e.kw, 0) + ' kW' : '—') + '</span></div>';
+    h += '<div class="eqfields">' + fields + '</div>';
+    h += '<div class="eqlook" data-model="' + e.id + '">查看设备模型 →</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function equipSection(u) {
+    var items = R.u[u.id].eq;
+    var h = '<div class="eqsec"><div class="pgt">配套设备（选型 · 负荷率）</div>';
+    items.forEach(function (e) { h += equipCard(u, e); });
+    h += '</div>';
+    return h;
+  }
+
+  function updateEquipment() {
+    var u = unitById(sel);
+    if (!u || !R.u[u.id] || !R.u[u.id].eq) return;
+    R.u[u.id].eq.forEach(function (e) {
+      var q = $('[data-eq-qty="' + e.id + '"]');
+      if (q) q.textContent = equipQty(e);
+      var cap = $('[data-eq-cap="' + e.id + '"]');
+      if (cap) cap.textContent = fmtInt(e.cap);
+      var dem = $('[data-eq-dem="' + e.id + '"]');
+      if (dem) dem.textContent = fmtInt(e.dem);
+      var bar = $('[data-eq-bar="' + e.id + '"]');
+      if (bar) {
+        bar.style.width = Math.min(100, Math.max(2, e.load * 100)) + '%';
+        bar.className = e.load > 1.02 ? 'r-bad' : e.load > 0.99 ? 'r-warn' : 'r-ok';
+      }
+      var ld = $('[data-eq-load="' + e.id + '"]');
+      if (ld) ld.textContent = '负荷率 ' + fmt(e.load * 100, 0) + '%';
+      var kw = $('[data-eq-kw="' + e.id + '"]');
+      if (kw) kw.textContent = e.kw > 0 ? '运行 ' + fmt(e.kw, 0) + ' kW' : '—';
+    });
+  }
+
+  function updateReadouts() {
+    var u = unitById(sel);
+    if (!u) return;
+    var rows = readoutRows(u);
+    var h = '<div class="rt">计算值</div><div class="rgrid">';
+    rows.forEach(function (r) {
+      h += '<div class="rcell"><div class="rk">' + r[0] + '</div><div class="rv">' + r[1] + '<span>' + r[2] + '</span></div></div>';
+    });
+    h += '</div>';
+    $('#reads').innerHTML = h;
+  }
+
+  /* ------------------------------------------------------------ KPI */
+  var KPI_DEF = [
+    { k: 'q', t: '处理量', u: '万 m³/d' },
+    { k: 'cod', t: '出水 COD', u: 'mg/L' },
+    { k: 'nh', t: '出水 NH₃-N', u: 'mg/L' },
+    { k: 'tn', t: '出水 TN', u: 'mg/L' },
+    { k: 'tp', t: '出水 TP', u: 'mg/L' },
+    { k: 'pass', t: '一级 A 达标', u: '' },
+    { k: 'energy', t: '吨水电耗', u: 'kWh/m³' },
+    { k: 'cost', t: '吨水成本', u: '元/m³' }
+  ];
+
+  function buildKPI() {
+    var h = '';
+    KPI_DEF.forEach(function (d) {
+      h += '<div class="kpi' + (d.k === 'pass' ? ' kpass' : '') + '" id="kpi-' + d.k + '">' +
+        '<div class="kt">' + d.t + '</div>' +
+        '<div class="kv"><b>—</b><span>' + d.u + '</span></div>' +
+        '<div class="kbar"><i></i></div>' +
+        '</div>';
+    });
+    $('#kpis').innerHTML = h;
+  }
+
+  function updateKPI() {
+    var e = R.effluent;
+    var set = function (k, v, unit) {
+      var el = $('#kpi-' + k + ' b');
+      if (el) el.textContent = v;
+    };
+    set('q', fmt(P.Q / 10000, 1));
+    set('cod', fmt(e.COD, 1));
+    set('nh', fmt(e.NH, 2));
+    set('tn', fmt(e.TN, 1));
+    set('tp', fmt(e.TP, 2));
+    set('energy', fmt(R.energyPerM3, 3));
+    set('cost', fmt(R.cost.total, 2));
+
+    var p = $('#kpi-pass');
+    p.classList.toggle('ok', R.pass);
+    p.classList.toggle('bad', !R.pass);
+    p.querySelector('b').textContent = R.pass ? '达标 ' + R.passCount + '/7' : '超标 ' + (7 - R.passCount) + ' 项';
+    p.querySelector('span').textContent = '';
+
+    var bar = function (k, ratio) {
+      var el = $('#kpi-' + k + ' .kbar i');
+      if (!el) return;
+      el.style.width = Math.min(100, Math.max(3, ratio * 100)) + '%';
+      el.className = ratio > 1 ? 'r-bad' : ratio > 0.75 ? 'r-warn' : 'r-ok';
+    };
+    bar('cod', e.COD / 50);
+    bar('nh', e.NH / 5);
+    bar('tn', e.TN / 15);
+    bar('tp', e.TP / 0.5);
+    bar('energy', R.energyPerM3 / 0.45);
+    bar('cost', R.cost.total / 1.2);
+    (function () {
+      var el = $('#kpi-q .kbar i');
+      if (!el) return;
+      var r = P.Q / P.Qd;
+      el.style.width = Math.min(100, r * 100) + '%';
+      el.className = r > 1 ? 'r-bad' : 'r-ok';
+    })();
+  }
+
+  function updateAlerts() {
+    var bad = R.warn.filter(function (w) { return w.lv === 'bad'; });
+    var warn = R.warn.filter(function (w) { return w.lv === 'warn'; });
+    var h = '';
+    bad.slice(0, 2).forEach(function (w) { h += '<div class="alert bad">' + esc(w.t) + '</div>'; });
+    warn.slice(0, 2).forEach(function (w) { h += '<div class="alert warn">' + esc(w.t) + '</div>'; });
+    if (!h) h = '<div class="alert ok">' + esc(R.warn[0] ? R.warn[0].t : '运行正常') + '</div>';
+    $('#alerts').innerHTML = h;
+  }
+
+  /* ------------------------------------------------------------ 底部页签 */
+  function renderTab() {
+    var body = $('#tabbody');
+    if (tab === 'table') body.innerHTML = viewTable();
+    else if (tab === 'compliance') body.innerHTML = viewCompliance();
+    else if (tab === 'energy') body.innerHTML = viewEnergy();
+    else if (tab === 'cost') body.innerHTML = viewCost();
+    else if (tab === 'models') body.innerHTML = viewModels();
+    else body.innerHTML = viewNotes();
+  }
+
+  function streamRows() {
+    return R.streams.filter(function (s) { return s.id !== 'sludge'; });
+  }
+
+  function viewTable() {
+    var rows = streamRows();
+    var h = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+      '<th>处理单元</th><th>停留时间</th><th>流量 m³/d</th><th>COD</th><th>BOD₅</th><th>SS</th><th>NH₃-N</th><th>TN</th><th>TP</th><th>碱度</th><th>COD 去除率</th>' +
+      '</tr></thead><tbody>';
+    var c0 = rows[0].COD;
+    rows.forEach(function (s) {
+      var rem = c0 > 0 ? (1 - s.COD / c0) * 100 : 0;
+      h += '<tr' + (s.id === 'out' ? ' class="rowout"' : '') + '>' +
+        '<td class="name">' + esc(s.name) + '</td>' +
+        '<td>' + (s.hrt ? fmt(s.hrt, 2) + ' h' : '—') + '</td>' +
+        '<td>' + (s.Q ? fmt(s.Q, 0) : '—') + '</td>' +
+        '<td>' + fmt(s.COD, 1) + '</td>' +
+        '<td>' + fmt(s.BOD, 1) + '</td>' +
+        '<td>' + (s.SS > 1000 ? fmt(s.SS, 0) : fmt(s.SS, 1)) + '</td>' +
+        '<td>' + fmt(s.NH, 2) + '</td>' +
+        '<td>' + fmt(s.TN, 1) + '</td>' +
+        '<td>' + fmt(s.TP, 2) + '</td>' +
+        '<td>' + fmt(s.ALK, 0) + '</td>' +
+        '<td>' + fmt(rem, 1) + '%</td>' +
+        '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="chartbox"><div class="ct">沿程浓度（占进水百分比）</div>' + chart() + '</div>';
+    h += '<div class="note-line">峰值流量（Kz=' + P.Kz + '）下各构筑物负荷按 ' + fmt(P.Q * P.Kz, 0) + ' m³/d 校核；表中浓度除生化池为混合液外，其余均为该单元出水。</div>';
+    return h;
+  }
+
+  function chart() {
+    var rows = streamRows();
+    var W = 720, H = 238, padL = 38, padR = 10, padT = 26, padB = 66;
+    var series = [
+      { key: 'COD', color: '#0ea5e9', name: 'COD' },
+      { key: 'TN', color: '#f59e0b', name: 'TN' },
+      { key: 'NH', color: '#10b981', name: 'NH₃-N' },
+      { key: 'TP', color: '#a855f7', name: 'TP' }
+    ];
+    var base = rows[0];
+    var n = rows.length;
+    var xs = function (i) { return padL + (W - padL - padR) * (i / (n - 1)); };
+    var ys = function (v) { return padT + (H - padT - padB) * (1 - v); };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart">';
+    [0, 25, 50, 75, 100].forEach(function (g) {
+      s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + ys(g / 100) + '" y2="' + ys(g / 100) + '" class="cgrid"/>';
+      s += '<text x="' + (padL - 6) + '" y="' + (ys(g / 100) + 3) + '" class="clab" text-anchor="end">' + g + '%</text>';
+    });
+    series.forEach(function (se) {
+      var pts = rows.map(function (r, i) {
+        var v = base[se.key] > 0 ? Math.min(1.15, r[se.key] / base[se.key]) : 0;
+        return xs(i) + ',' + ys(v);
+      }).join(' ');
+      s += '<polyline points="' + pts + '" fill="none" stroke="' + se.color + '" stroke-width="2.2" stroke-linejoin="round"/>';
+      rows.forEach(function (r, i) {
+        var v = base[se.key] > 0 ? Math.min(1.15, r[se.key] / base[se.key]) : 0;
+        s += '<circle cx="' + xs(i) + '" cy="' + ys(v) + '" r="2.4" fill="' + se.color + '"/>';
+      });
+    });
+    rows.forEach(function (r, i) {
+      if (i % 2 === 0 || r.id === 'out') {
+        s += '<text x="' + xs(i) + '" y="' + (H - 30) + '" class="cxlab" text-anchor="end" transform="rotate(-32 ' + xs(i) + ' ' + (H - 30) + ')">' + esc(r.name.replace('（泥饼）', '')) + '</text>';
+      }
+    });
+    s += '</svg>';
+    var lg = '<div class="clegend">';
+    series.forEach(function (se) {
+      lg += '<span><i style="background:' + se.color + '"></i>' + se.name + '</span>';
+    });
+    lg += '</div>';
+    return lg + s;
+  }
+
+  function viewCompliance() {
+    var e = R.effluent;
+    var h = '<div class="cmp-grid">';
+    R.compliance.forEach(function (c) {
+      var ratio = Math.min(1.6, c.value / c.limit);
+      var cls = c.pass ? (ratio > 0.85 ? 'warn' : 'ok') : 'bad';
+      h += '<div class="cmp ' + cls + '">' +
+        '<div class="cmp-h"><span class="cmp-n">' + c.name + '</span><span class="cmp-v">' + fmt(c.value, c.dec) + '<i> ' + (c.unit || "mg/L") + '</i></span></div>' +
+        '<div class="cmp-bar"><i style="width:' + Math.min(100, ratio / 1.6 * 100) + '%"></i><b style="left:' + (1 / 1.6 * 100) + '%"></b></div>' +
+        '<div class="cmp-f"><span>限值 ' + c.limit + ' ' + (c.unit || "mg/L") + '</span><span class="' + (c.pass ? 'tg-ok' : 'tg-bad') + '">' + (c.pass ? '达标' : '超标') + '</span></div>' +
+        '</div>';
+    });
+    h += '</div>';
+    h += '<div class="grid2 mt">';
+    h += '<div><div class="ct">与一级 B 标准对比</div><table class="tbl compact"><thead><tr><th>指标</th><th>出水</th><th>一级A</th><th>一级B</th><th>结论</th></tr></thead><tbody>';
+    R.complianceB.forEach(function (c) {
+      h += '<tr><td class="name">' + c.name + '</td><td>' + fmt(c.value, 2) + '</td><td>' + c.limitA + '</td><td>' + c.limitB + '</td><td>' + (c.pass ? '<span class="tg-ok">达一级B</span>' : '<span class="tg-bad">超一级B</span>') + '</td></tr>';
+    });
+    h += '</tbody></table><div class="note-line">《城镇污水处理厂污染物排放标准》GB 18918-2002，括号内为水温≤12℃时氨氮限值 8 mg/L。SS 与 TP 同时受后续深度处理保障。</div></div>';
+    h += '<div><div class="ct">达标诊断</div><div class="diag">' + R.warn.map(function (w) {
+      return '<div class="dg ' + w.lv + '"><i></i>' + esc(w.t) + '</div>';
+    }).join('') + '</div></div></div>';
+    return h;
+  }
+
+  function viewEnergy() {
+    var max = Math.max.apply(null, R.energy.map(function (e) { return e.kwh; }));
+    var h = '<div class="grid2">';
+    h += '<div><div class="ct">电耗构成　合计 ' + fmt(R.energyTotal, 0) + ' kWh/d（' + fmt(R.energyPerM3, 3) + ' kWh/m³）</div>' +
+      '<div class="note-line" style="margin:-4px 0 8px">设备装机 ' + fmt(R.eqInstall, 0) + ' kW · 运行 ' + fmt(R.eqRunning, 0) + ' kW · 装机利用率 ' + fmt(R.eqRunning / R.eqInstall * 100, 0) + '%</div>';
+    h += '<table class="tbl compact"><thead><tr><th>设备</th><th>功率 kW</th><th>日耗电 kWh</th><th>占比</th></tr></thead><tbody>';
+    R.energy.forEach(function (e) {
+      var p = e.kwh / R.energyTotal * 100;
+      h += '<tr><td class="name">' + e.name + '</td><td>' + fmt(e.kw, 1) + '</td><td>' + fmt(e.kwh, 0) + '</td>' +
+        '<td class="barcell"><div class="minibar"><i style="width:' + (e.kwh / max * 100) + '%"></i></div>' + fmt(p, 1) + '%</td></tr>';
+    });
+    h += '<tr class="rowout"><td class="name">合计</td><td>—</td><td>' + fmt(R.energyTotal, 0) + '</td><td>100%</td></tr>';
+    h += '</tbody></table></div>';
+
+    h += '<div><div class="ct">污泥平衡</div><table class="tbl compact"><tbody>';
+    h += '<tr><td class="name">初沉污泥</td><td>' + fmt(R.sludge.dsPrimary / 1000, 2) + ' tDS/d</td></tr>';
+    h += '<tr><td class="name">剩余污泥</td><td>' + fmt(R.sludge.dsBio / 1000, 2) + ' tDS/d</td></tr>';
+    h += '<tr><td class="name">化学污泥</td><td>' + fmt(R.sludge.dsChem / 1000, 2) + ' tDS/d</td></tr>';
+    h += '<tr class="rowout"><td class="name">总干泥</td><td>' + fmt(R.sludge.ds / 1000, 2) + ' tDS/d</td></tr>';
+    h += '<tr><td class="name">浓缩后体积（' + P.sl_thick + '%）</td><td>' + fmt(R.sludge.thickVol, 0) + ' m³/d</td></tr>';
+    h += '<tr><td class="name">泥饼量（' + P.sl_cake + '%）</td><td>' + fmt(R.sludge.cake, 1) + ' t/d</td></tr>';
+    h += '<tr><td class="name">滤液回流量</td><td>' + fmt(R.sludge.filterQ, 0) + ' m³/d</td></tr>';
+    h += '<tr><td class="name">脱水 PAM</td><td>' + fmt(R.sludge.pam, 1) + ' kg/d</td></tr>';
+    h += '</tbody></table>';
+    h += '<div class="ct mt">药剂消耗</div><table class="tbl compact"><tbody>';
+    h += '<tr><td class="name">PAC</td><td>' + fmt(P.tp_pac * P.Q / 1000, 0) + ' kg/d</td></tr>';
+    h += '<tr><td class="name">PAM（水处理）</td><td>' + fmt(P.tp_pam * P.Q / 1000, 1) + ' kg/d</td></tr>';
+    h += '<tr><td class="name">乙酸钠</td><td>' + fmt((P.ax_carbon + P.df_naac) * P.Q / 1000, 0) + ' kg/d</td></tr>';
+    h += '<tr><td class="name">次氯酸钠（有效氯）</td><td>' + fmt(P.di_dose * P.Q / 1000, 0) + ' kg/d</td></tr>';
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+
+  function viewCost() {
+    var c = R.cost;
+    var items = [
+      ['电费', c.elec, fmt(R.energyTotal, 0) + ' kWh/d × ' + P.c_elec + ' 元/kWh'],
+      ['药剂费', c.chem, 'PAC ' + P.tp_pac + ' / PAM ' + fmt(P.tp_pam, 1) + ' / 次氯酸钠 ' + P.di_dose + ' mg/L'],
+      ['污泥处置费', c.sludge, fmt(R.sludge.cake, 1) + ' t/d × ' + P.c_sludge + ' 元/t'],
+      ['人工/维修/折旧', c.fixed, '固定摊薄']
+    ];
+    var h = '<div class="grid2">';
+    h += '<div><div class="ct">吨水成本构成　合计 <b class="big">' + fmt(c.total, 3) + '</b> 元/m³</div>';
+    h += '<table class="tbl compact"><thead><tr><th>项目</th><th>元/m³</th><th>占比</th><th>说明</th></tr></thead><tbody>';
+    items.forEach(function (it) {
+      h += '<tr><td class="name">' + it[0] + '</td><td>' + fmt(it[1], 3) + '</td><td>' + fmt(it[1] / c.total * 100, 1) + '%</td><td class="muted">' + it[2] + '</td></tr>';
+    });
+    h += '<tr class="rowout"><td class="name">合计</td><td>' + fmt(c.total, 3) + '</td><td>100%</td><td>日成本 ' + fmt(c.total * P.Q / 10000, 2) + ' 万元</td></tr>';
+    h += '</tbody></table>';
+    h += '<div class="note-line">点击左侧「运行成本参数」可调整各项单价。10 万 m³/d 一级 A 厂的典型吨水成本约 0.6~1.0 元。</div></div>';
+    h += '<div><div class="ct">药剂明细</div><table class="tbl compact"><thead><tr><th>药剂</th><th>单耗</th><th>日用量</th><th>日费用</th></tr></thead><tbody>';
+    h += '<tr><td class="name">PAC</td><td>' + P.tp_pac + ' mg/L</td><td>' + fmt(P.tp_pac * P.Q / 1000, 0) + ' kg</td><td>' + fmt(c.pac * P.Q / 10000, 2) + ' 万元</td></tr>';
+    h += '<tr><td class="name">PAM</td><td>' + fmt(P.tp_pam, 1) + ' mg/L</td><td>' + fmt(P.tp_pam * P.Q / 1000, 1) + ' kg</td><td>' + fmt(c.pam * P.Q / 10000, 2) + ' 万元</td></tr>';
+    h += '<tr><td class="name">乙酸钠</td><td>' + (P.ax_carbon + P.df_naac) + ' mg/L</td><td>' + fmt((P.ax_carbon + P.df_naac) * P.Q / 1000, 0) + ' kg</td><td>' + fmt(c.naac * P.Q / 10000, 2) + ' 万元</td></tr>';
+    h += '<tr><td class="name">次氯酸钠</td><td>' + P.di_dose + ' mg/L</td><td>' + fmt(P.di_dose * P.Q / 1000, 0) + ' kg</td><td>' + fmt(c.naocl * P.Q / 10000, 2) + ' 万元</td></tr>';
+    h += '</tbody></table>';
+    h += '<div class="ct mt">可调单价</div><div class="price-edit" id="price-edit"></div></div></div>';
+    setTimeout(buildPriceEdit, 0);
+    return h;
+  }
+
+  function buildPriceEdit() {
+    var box = $('#price-edit');
+    if (!box) return;
+    var u = unitById('cost');
+    var h = '';
+    u.params.forEach(function (p) {
+      h += '<label class="pe"><span>' + p.label + '</span><input type="number" min="' + p.min + '" max="' + p.max + '" step="' + p.step + '" value="' + P[p.k] + '" data-k="' + p.k + '"><i>' + p.unit + '</i></label>';
+    });
+    box.innerHTML = h;
+  }
+
+  function viewModels() {
+    var h = '<div class="ct">设备模型库 · 点击任意设备查看剖面图与工作原理</div>';
+    h += '<div class="note-line" style="margin:-4px 0 12px">共 23 台设备、12 类结构。图形为教学示意，编号与说明一一对应；旋转、流动、气泡表示设备正在运行。</div>';
+    h += '<div class="atlas">';
+    EQMODEL.ORDER.forEach(function (id) {
+      var info = EQMODEL.INFO[id];
+      var e = (R.equipment || []).filter(function (x) { return x.id === id; })[0];
+      var ld = '', cls = '';
+      if (e && e.load !== null) {
+        var p = Math.round(e.load * 100);
+        ld = p + '%';
+        cls = e.load > 1.02 ? 'b' : e.load > 0.99 ? 'w' : '';
+      } else if (e) { ld = e.n + ' 台'; }
+      h += '<div class="acard" data-model="' + id + '">' +
+        '<div class="thumb">' + EQMODEL.render(id, true) + '</div>' +
+        '<div class="meta"><div><div class="an">' + info.name + '</div><div class="au">' + info.unit + '</div></div>' +
+        '<span class="ld ' + cls + '">' + ld + '</span></div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function closeModel() {
+    var host = document.getElementById('model-host');
+    if (host) host.parentNode.removeChild(host);
+    document.body.style.overflow = '';
+  }
+
+  function openModel(id) {
+    var info = EQMODEL.INFO[id];
+    if (!info) return;
+    var e = (R.equipment || []).filter(function (x) { return x.id === id; })[0];
+    var parts = EQMODEL.parts(id);
+    var circ = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫'.split('');
+    var m = '';
+    if (e) {
+      m += '<div class="chip"><b>' + e.n + (e.ns ? '+' + e.ns : '') + '</b><span>台数（用+备）</span></div>';
+      if (e.load !== null) m += '<div class="chip"><b>' + Math.round(e.load * 100) + '%</b><span>负荷率</span></div>';
+      if (e.cap) m += '<div class="chip"><b>' + fmtInt(e.cap) + '</b><span>额定 ' + e.unit + '</span></div>';
+      if (e.dem) m += '<div class="chip"><b>' + fmtInt(e.dem) + '</b><span>当前需求 ' + e.unit + '</span></div>';
+      if (e.kw) m += '<div class="chip"><b>' + fmtInt(e.kw) + '</b><span>运行功率 kW</span></div>';
+    }
+    var html = '<div class="mask" id="mask"><div class="modal">' +
+      '<div class="modal-head"><div><h3>' + info.name + '</h3><p>' + info.unit + ' · 教学剖面示意</p></div>' +
+      '<button class="x" id="mclose">×</button></div>' +
+      '<div class="modal-in"><div class="mleft">' + EQMODEL.render(id, false) + '</div><div class="mright">' +
+      (m ? '<div class="mstats">' + m + '</div>' : '') +
+      '<h4>它在厂里做什么</h4><p>' + info.role + '</p>' +
+      '<h4>工作原理</h4><p>' + info.principle + '</p>' +
+      '<h4>关键部件</h4><ul class="parts">' +
+      parts.map(function (p, i) { return '<li><b>' + (circ[i] || (i + 1)) + '</b>' + p + '</li>'; }).join('') +
+      '</ul><h4>常见故障</h4><ul class="faults">' +
+      info.faults.map(function (f) { return '<li>' + f + '</li>'; }).join('') +
+      '</ul></div></div></div></div>';
+    closeModel();
+    var d = document.createElement('div');
+    d.id = 'model-host';
+    d.innerHTML = html;
+    document.body.appendChild(d);
+    document.body.style.overflow = 'hidden';
+    document.getElementById('mclose').onclick = closeModel;
+    document.getElementById('mask').onclick = function (ev) { if (ev.target.id === 'mask') closeModel(); };
+  }
+
+  function viewNotes() {
+    return '<div class="notes">' +
+      '<h3>模型定位</h3>' +
+      '<p>这是一个<b>工程级工艺模拟器</b>：进水、各处理单元、回流与污泥线按物料平衡串联，生化段采用简化活性污泥动力学。目标是让参数变化的方向、量级与真实污水厂一致，用于方案比选、运行诊断与教学演示，<b>不替代</b>设计院的精确计算或 ASM 商业软件。</p>' +
+      '<h3>核心计算关系</h3>' +
+      '<ul>' +
+      '<li><b>池容</b>：由「设计规模 × 设计 HRT」确定；改变实际处理量只改变负荷，不改变池容，因此超负荷会真实反映在停留时间与固体负荷上。</li>' +
+      '<li><b>MLSS</b>：MLSS = SRT × 剩余污泥量 ÷ 生化池容积，随 SRT、进水负荷与初沉效果联动。</li>' +
+      '<li><b>硝化</b>：由硝化菌比增长速率（温度 θ=1.072、DO 半饱和 0.5 mg/L、氨氮半饱和 1 mg/L）反算最低泥龄 SRTmin，实际 SRT/SRTmin 决定硝化完成度；碱度不足时自动限制硝化。</li>' +
+      '<li><b>反硝化</b>：取「碳源限制能力」与「动力学能力（SDNR × MLSS × 缺氧池容积）」的较小值，同时受内回流比决定的理论下限约束；温度按 θ=1.06 修正。</li>' +
+      '<li><b>除磷</b>：厌氧释磷量随进水 TP、HRT 与厌氧区 DO 变化；回流污泥带入的硝态氮会抑制释磷；好氧段按 2.6 倍释磷量吸磷，剩余 TP 由 PAC 化学沉淀兜底。</li>' +
+      '<li><b>需氧量</b>：AOR = 0.5×去除 COD + 4.57×硝化量 − 2.86×反硝化量；再按 α、β、水深、温度折算为标准氧 SOR，由氧转移效率反算风量与鼓风机功率。</li>' +
+      '<li><b>二沉池</b>：出水 SS 由实际表面负荷的立方项与固体负荷超限共同决定。</li>' +
+      '</ul>' +
+      '<h3>主要假设</h3>' +
+      '<ul>' +
+      '<li>进水不含硝态氮，有机氮按 TN−NH₃-N 计；同化需氮按 0.045 kgN/kgDS 扣除。</li>' +
+      '<li>滤液回流按进水量比例带入 NH₃-N 150、COD 250、TP 20 mg/L 的负荷。</li>' +
+      '<li>电耗为单元估算值（泵扬程、风机风压、搅拌功率密度），不含厂区照明等极小事項。</li>' +
+      '<li>化学污泥按 PAC 投加量的 0.35 倍干泥估算；泥饼按设定含水率折算。</li>' +
+      '</ul>' +
+      '<h3>设备模型（教学用）</h3>' +
+      '<p>「设备模型」页签里是 23 台设备的剖面示意图，分 13 类结构。点开任意一台可以看到：带编号的部件（与图上 ①②③ 一一对应）、它在厂里做什么、工作原理、常见故障，以及它在<b>当前工况</b>下的台数、负荷率、额定与需求、运行功率。图形会随参数联动：把水量从 10 万调到 13 万，泵和风机的负荷率会跟着涨，卡片变红就是“这台机器选小了”。</p>' +
+      '<p>图是示意剖面，不是施工图；尺寸比例经过简化，目的是让学生看懂“这个东西长什么样、水从哪进从哪出、为什么会坏”。</p>' +
+      '<h3>使用建议</h3>' +
+      '<p>先看「出水达标」判断短板，再回到流程图点击对应单元调参：TN 不够优先看内回流比、碳源、缺氧池 HRT 与水温；TP 不够优先看 PAC 与厌氧区 DO；SS 不够看二沉池表面负荷与 PAC；氨氮不够看 SRT、DO 与碱度。每改一次参数，右上角 KPI 与流程图状态点会同步变化。</p>' +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------ 刷新 */
+  var raf = null;
+  function refresh(rebuildPanel) {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function () {
+      R = WW.simulate(P);
+      updateKPI();
+      updateDiagram();
+      updateAlerts();
+      if (rebuildPanel) buildPanel(); else { updateReadouts(); updateEquipment(); }
+      renderTab();
+      if (tab === 'cost') buildPriceEdit();
+    });
+  }
+
+  /* ------------------------------------------------------------ 交互 */
+  function bind() {
+    $('#diagram').addEventListener('click', function (ev) {
+      var g = ev.target.closest('.node');
+      if (!g) return;
+      sel = g.getAttribute('data-id');
+      buildPanel();
+      updateDiagram();
+      if (window.innerWidth < 1100) $('#panel').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    $('#panel').addEventListener('input', function (ev) {
+      var t = ev.target;
+      var k = t.getAttribute('data-k');
+      if (!k) return;
+      var v = parseFloat(t.value);
+      if (!isFinite(v)) return;
+      P[k] = v;
+      if (scenario !== 'custom') { scenario = 'custom'; $('#scenario').value = 'custom'; }
+      var pv = $('[data-v="' + k + '"]');
+      if (pv) pv.textContent = fmt(v, parseInt(t.getAttribute('data-dec') || '0', 10));
+      var range = $('.prange[data-k="' + k + '"]');
+      if (range && range !== t) range.value = v;
+      refresh(false);
+    });
+
+    $('#panel').addEventListener('click', function (ev) {
+      var ml = ev.target.closest('[data-model]');
+      if (ml) { openModel(ml.getAttribute('data-model')); return; }
+      var sw = ev.target.closest('[data-sw]');
+      if (sw) {
+        var k = sw.getAttribute('data-sw');
+        P[k] = P[k] ? 0 : 1;
+        if (scenario !== 'custom') { scenario = 'custom'; $('#scenario').value = 'custom'; }
+        sw.textContent = P[k] ? '已开启' : '未开启';
+        sw.classList.toggle('on', !!P[k]);
+        refresh(false);
+        return;
+      }
+      if (ev.target.id === 'btn-unit-reset') {
+        var u = unitById(sel);
+        u.params.forEach(function (p) { P[p.k] = p.def; });
+        buildPanel();
+        refresh(false);
+      }
+    });
+
+    $('#tabbody').addEventListener('click', function (ev) {
+      var ml = ev.target.closest('[data-model]');
+      if (ml) { openModel(ml.getAttribute('data-model')); }
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') closeModel();
+    });
+
+    $('#tabs').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-tab]');
+      if (!b) return;
+      tab = b.getAttribute('data-tab');
+      $$('#tabs button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      renderTab();
+      if (tab === 'cost') buildPriceEdit();
+    });
+
+    $('#tabbody').addEventListener('change', function (ev) {
+      var k = ev.target.getAttribute('data-k');
+      if (!k) return;
+      var v = parseFloat(ev.target.value);
+      if (!isFinite(v)) return;
+      P[k] = v;
+      refresh(false);
+      if (tab === 'cost') buildPriceEdit();
+    });
+
+    $('#scenario').addEventListener('change', function () {
+      var k = this.value;
+      scenario = k;
+      var mods = SCENARIOS[k].mods;
+      P = Object.assign({}, D, mods);
+      refresh(true);
+    });
+
+    $('#btn-reset').addEventListener('click', function () {
+      P = Object.assign({}, D);
+      scenario = 'design';
+      $('#scenario').value = 'design';
+      refresh(true);
+    });
+
+    $('#btn-xlsx').addEventListener('click', exportXLSX);
+    $('#btn-csv').addEventListener('click', exportCSV);
+    $('#btn-pdf').addEventListener('click', exportPDF);
+    $('#btn-save').addEventListener('click', function () {
+      var blob = new Blob([JSON.stringify({ v: 1, params: P }, null, 2)], { type: 'application/json' });
+      download(blob, '污水厂参数方案.json');
+    });
+    $('#btn-load').addEventListener('click', function () { $('#file-load').click(); });
+    $('#file-load').addEventListener('change', function (ev) {
+      var f = ev.target.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        try {
+          var o = JSON.parse(rd.result);
+          var src = o.params || o;
+          Object.keys(D).forEach(function (k) { if (typeof src[k] === 'number') P[k] = src[k]; });
+          $('#scenario').value = 'custom';
+          refresh(true);
+        } catch (e) { alert('方案文件无法解析'); }
+      };
+      rd.readAsText(f);
+      ev.target.value = '';
+    });
+  }
+
+  /* ------------------------------------------------------------ 情景 */
+  var SCENARIOS = {
+    design: { name: '设计工况（稳定达标）', mods: {} },
+    winter: { name: '冬季低温 12℃（未做调整）', mods: { iT: 12 } },
+    winter_fix: { name: '冬季优化运行（提泥龄+扩缺氧区）', mods: { iT: 12, ae_srt: 26, ax_hrt: 4.5, ae_hrt: 8.5, tp_pac: 30 } },
+    rain: { name: '雨季冲击（Q×1.4、低浓度）', mods: { Q: 140000, iCOD: 210, iBOD: 95, iSS: 140, iNH: 22, iTN: 28, iTP: 2.9 } },
+    industry: { name: '工业废水偷排（占比 35%）', mods: { iIND: 35, iCOD: 520, iBOD: 150, iTN: 52 } },
+    holiday: { name: '春节低负荷（Q×0.55）', mods: { Q: 55000, iCOD: 280, iNH: 30, iTN: 38 } },
+    carbon: { name: '碳源不足（TN 超标）', mods: { ax_fdn: 32, ax_r: 200 } },
+    fix: { name: '投碳源 + 提PAC（恢复达标）', mods: { ax_fdn: 32, ax_r: 200, ax_carbon: 35, tp_pac: 45 } },
+    bypass: { name: '初沉池超越（保留碳源）', mods: { pc_bypass: 1 } },
+    lowdo: { name: '曝气不足（DO 0.8）', mods: { ae_do: 0.8, ae_ea: 16 } },
+    overload: { name: '超负荷 130%', mods: { Q: 130000 } }
+  };
+
+  function buildScenarios() {
+    var s = '';
+    Object.keys(SCENARIOS).forEach(function (k) {
+      s += '<option value="' + k + '">' + SCENARIOS[k].name + '</option>';
+    });
+    s += '<option value="custom">自定义参数</option>';
+    $('#scenario').innerHTML = s;
+    $('#scenario').value = 'design';
+  }
+
+  /* ------------------------------------------------------------ 导出：下载 */
+  function download(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+
+  function paramRows() {
+    var rows = [['单元', '参数', '数值', '单位', '说明']];
+    WW.UNITS.forEach(function (u) {
+      u.params.forEach(function (p) {
+        rows.push([u.name, p.label, P[p.k], p.unit || '', p.hint || '']);
+      });
+    });
+    return rows;
+  }
+
+  function streamSheet() {
+    var rows = [['处理单元', '停留时间(h)', '流量(m³/d)', 'COD', 'BOD5', 'SS', 'NH3-N', 'TN', 'TP', '碱度', '备注']];
+    R.streams.filter(function (s) { return s.id !== 'sludge'; }).forEach(function (s) {
+      rows.push([s.name, s.hrt || '', s.Q || '', +s.COD.toFixed(2), +s.BOD.toFixed(2), +s.SS.toFixed(2), +s.NH.toFixed(2), +s.TN.toFixed(2), +s.TP.toFixed(3), s.ALK, s.note]);
+    });
+    return rows;
+  }
+
+  function complianceSheet() {
+    var rows = [['指标', '出水值', '一级A限值', '一级B限值', '单项判定']];
+    R.compliance.forEach(function (c, i) {
+      rows.push([c.name, +c.value.toFixed(3), c.limit, R.complianceB[i] ? R.complianceB[i].limitB : '', c.pass ? '达标' : '超标']);
+    });
+    return rows;
+  }
+
+  function energySheet() {
+    var rows = [['设备', '功率(kW)', '日耗电(kWh/d)', '占比(%)']];
+    R.energy.forEach(function (e) {
+      rows.push([e.name, +e.kw.toFixed(2), Math.round(e.kwh), +(e.kwh / R.energyTotal * 100).toFixed(1)]);
+    });
+    rows.push(['合计', '', Math.round(R.energyTotal), 100]);
+    rows.push([]);
+    rows.push(['吨水电耗(kWh/m³)', +R.energyPerM3.toFixed(4)]);
+    rows.push(['设备装机(kW)', Math.round(R.eqInstall)]);
+    rows.push(['设备运行(kW)', Math.round(R.eqRunning)]);
+    rows.push(['总干泥(tDS/d)', +(R.sludge.ds / 1000).toFixed(2)]);
+    rows.push(['泥饼(t/d)', +R.sludge.cake.toFixed(2)]);
+    rows.push(['吨水成本(元/m³)', +R.cost.total.toFixed(3)]);
+    return rows;
+  }
+
+  function equipmentRows() {
+    var rows = [['处理单元', '设备名称', '台数(用/备)', '额定能力', '单位', '需求', '负荷率(%)', '单机功率(kW)', '装机(kW)', '运行(kW)']];
+    R.equipment.forEach(function (e) {
+      rows.push([
+        e.unitName, e.name,
+        e.p > 0 ? (e.n + (e.ns ? '+' + e.ns : '')) : (e.n + ' 个'),
+        e.cap > 0 ? Math.round(e.cap) : '',
+        e.unit,
+        e.dem === null ? '—' : Math.round(e.dem),
+        e.load === null ? '—' : Math.round(e.load * 100),
+        e.p || '',
+        Math.round(e.p * (e.n + e.ns)),
+        Math.round(e.kw)
+      ]);
+    });
+    rows.push([]);
+    rows.push(['合计', '', '', '', '', '', '', '', Math.round(R.eqInstall), Math.round(R.eqRunning)]);
+    return rows;
+  }
+
+  function exportCSV() {
+    var rows = streamSheet().concat([[]], complianceSheet()).concat([[]], energySheet());
+    var csv = rows.map(function (r) {
+      return r.map(function (c) {
+        var s = c === undefined || c === null ? '' : String(c);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(',');
+    }).join('\r\n');
+    download(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), '污水处理模拟结果.csv');
+  }
+
+  function exportPDF() {
+    $('#report').innerHTML = buildReport();
+    setTimeout(function () { window.print(); }, 60);
+  }
+
+  function buildReport() {
+    var e = R.effluent;
+    var ts = new Date().toLocaleString('zh-CN');
+    var h = '<div class="rp-head"><h1>污水处理厂工艺运行模拟报告</h1>' +
+      '<div class="rp-sub">A²/O + 高效沉淀 + 反硝化滤池 + 滤布滤池 ｜ 设计规模 ' + fmt(P.Qd, 0) + ' m³/d ｜ 生成时间 ' + ts + '</div></div>';
+
+    h += '<h2>一、运行概览</h2><table class="rp-tbl rp-kv"><tbody>';
+    var kv = [
+      ['实际处理量', fmt(P.Q, 0) + ' m³/d'],
+      ['负荷率', fmt(P.Q / P.Qd * 100, 1) + ' %'],
+      ['水温 / pH', P.iT + ' ℃ / ' + P.iPH],
+      ['进出水 COD', fmt(P.iCOD, 0) + ' → ' + fmt(e.COD, 1) + ' mg/L'],
+      ['进出水 NH₃-N', fmt(P.iNH, 0) + ' → ' + fmt(e.NH, 2) + ' mg/L'],
+      ['进出水 TN', fmt(P.iTN, 0) + ' → ' + fmt(e.TN, 1) + ' mg/L'],
+      ['进出水 TP', fmt(P.iTP, 1) + ' → ' + fmt(e.TP, 2) + ' mg/L'],
+      ['达标结论', R.pass ? '达到一级 A 标准（' + R.passCount + '/7 项）' : '未达标（' + (7 - R.passCount) + ' 项超标）'],
+      ['吨水电耗 / 成本', fmt(R.energyPerM3, 3) + ' kWh/m³ / ' + fmt(R.cost.total, 3) + ' 元/m³'],
+      ['泥饼产量', fmt(R.sludge.cake, 1) + ' t/d（含水率 ' + P.sl_cake + '%）']
+    ];
+    kv.forEach(function (x) { h += '<tr><th>' + x[0] + '</th><td>' + x[1] + '</td></tr>'; });
+    h += '</tbody></table>';
+
+    h += '<h2>二、出水达标判定</h2><table class="rp-tbl"><thead><tr><th>指标</th><th>出水值</th><th>一级A</th><th>一级B</th><th>判定</th></tr></thead><tbody>';
+    R.compliance.forEach(function (c, i) {
+      h += '<tr><td>' + c.name + '</td><td>' + fmt(c.value, c.dec) + ' ' + (c.unit || '') + '</td><td>' + c.limit + '</td><td>' + (R.complianceB[i] ? R.complianceB[i].limitB : '—') + '</td><td>' + (c.pass ? '达标' : '超标') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+
+    h += '<h2>三、沿程水质</h2><table class="rp-tbl"><thead><tr><th>处理单元</th><th>HRT(h)</th><th>COD</th><th>BOD₅</th><th>SS</th><th>NH₃-N</th><th>TN</th><th>TP</th></tr></thead><tbody>';
+    R.streams.filter(function (s) { return s.id !== 'sludge'; }).forEach(function (s) {
+      h += '<tr><td>' + s.name + '</td><td>' + (s.hrt ? fmt(s.hrt, 2) : '—') + '</td><td>' + fmt(s.COD, 1) + '</td><td>' + fmt(s.BOD, 1) + '</td><td>' + fmt(s.SS, s.SS > 1000 ? 0 : 1) + '</td><td>' + fmt(s.NH, 2) + '</td><td>' + fmt(s.TN, 1) + '</td><td>' + fmt(s.TP, 2) + '</td></tr>';
+    });
+    h += '</tbody></table>';
+
+    h += '<h2>四、关键设计参数</h2><table class="rp-tbl"><thead><tr><th>处理单元</th><th>主要参数</th></tr></thead><tbody>';
+    WW.UNITS.forEach(function (u) {
+      if (u.id === 'cost') return;
+      var ps = u.params.filter(function (p) { return p.type !== 'switch'; }).map(function (p) {
+        return p.label + ' ' + fmt(P[p.k], p.dec || 0) + (p.unit ? ' ' + p.unit : '');
+      }).join('；');
+      h += '<tr><td>' + u.name + '</td><td class="small">' + ps + '</td></tr>';
+    });
+    h += '</tbody></table>';
+
+    h += '<h2>五、能耗与污泥</h2><table class="rp-tbl"><thead><tr><th>设备</th><th>功率 kW</th><th>日耗电 kWh</th></tr></thead><tbody>';
+    R.energy.forEach(function (x) { h += '<tr><td>' + x.name + '</td><td>' + fmt(x.kw, 1) + '</td><td>' + fmt(x.kwh, 0) + '</td></tr>'; });
+    h += '<tr><th>合计</th><th></th><th>' + fmt(R.energyTotal, 0) + '</th></tr>';
+    h += '</tbody></table>';
+
+    h += '<h2>六、主要设备清单</h2><table class="rp-tbl"><thead><tr><th>处理单元</th><th>设备</th><th>台数(用+备)</th><th>额定</th><th>需求</th><th>负荷率</th><th>单机 kW</th><th>装机 kW</th></tr></thead><tbody>';
+    R.equipment.forEach(function (e) {
+      h += '<tr><td>' + e.unitName + '</td><td>' + e.name + '</td><td>' + (e.p > 0 ? e.n + (e.ns ? '+' + e.ns : '') : e.n + ' 个') + '</td>' +
+        '<td>' + (e.cap > 0 ? fmt(e.cap, 0) + ' ' + e.unit : '—') + '</td>' +
+        '<td>' + (e.dem === null ? '—' : fmt(e.dem, 0) + ' ' + e.unit) + '</td>' +
+        '<td>' + (e.load === null ? '—' : fmt(e.load * 100, 0) + '%') + '</td>' +
+        '<td>' + (e.p || '—') + '</td><td>' + fmt(e.p * (e.n + e.ns), 0) + '</td></tr>';
+    });
+    h += '<tr><th colspan="7">全厂装机 / 运行</th><th>' + fmt(R.eqInstall, 0) + ' / ' + fmt(R.eqRunning, 0) + '</th></tr>';
+    h += '</tbody></table>';
+
+    h += '<p class="rp-note">说明：本报告由工艺模拟器按物料平衡与简化动力学计算生成，用于运行分析与方案比选，不作为设计依据。</p>';
+    return h;
+  }
+
+  /* ------------------------------------------------------------ 导出 Excel */
+  var CRC_T = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(u8) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function zipStore(files) {
+    var enc = new TextEncoder();
+    var parts = [], central = [], offset = 0, cdSize = 0;
+    files.forEach(function (f) {
+      var name = enc.encode(f.name);
+      var crc = crc32(f.data);
+      var lh = new Uint8Array(30 + name.length);
+      var dv = new DataView(lh.buffer);
+      dv.setUint32(0, 0x04034b50, true);
+      dv.setUint16(4, 20, true);
+      dv.setUint16(6, 0x0800, true);
+      dv.setUint16(8, 0, true);
+      dv.setUint16(10, 0, true);
+      dv.setUint16(12, 0x5021, true);
+      dv.setUint32(14, crc, true);
+      dv.setUint32(18, f.data.length, true);
+      dv.setUint32(22, f.data.length, true);
+      dv.setUint16(26, name.length, true);
+      dv.setUint16(28, 0, true);
+      lh.set(name, 30);
+      parts.push(lh, f.data);
+
+      var cd = new Uint8Array(46 + name.length);
+      var cv = new DataView(cd.buffer);
+      cv.setUint32(0, 0x02014b50, true);
+      cv.setUint16(4, 20, true);
+      cv.setUint16(6, 20, true);
+      cv.setUint16(8, 0x0800, true);
+      cv.setUint16(10, 0, true);
+      cv.setUint16(12, 0, true);
+      cv.setUint16(14, 0x5021, true);
+      cv.setUint32(16, crc, true);
+      cv.setUint32(20, f.data.length, true);
+      cv.setUint32(24, f.data.length, true);
+      cv.setUint16(28, name.length, true);
+      cv.setUint32(42, offset, true);
+      cd.set(name, 46);
+      central.push(cd);
+      cdSize += cd.length;
+      offset += lh.length + f.data.length;
+    });
+    var eocd = new Uint8Array(22);
+    var ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, files.length, true);
+    ev.setUint16(10, files.length, true);
+    ev.setUint32(12, cdSize, true);
+    ev.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [eocd]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  function colName(i) {
+    var s = '';
+    i = i + 1;
+    while (i > 0) {
+      var m = (i - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+  function xesc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function sheetXML(rows, widths) {
+    var x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    if (widths) {
+      x += '<cols>';
+      widths.forEach(function (w, i) { x += '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; });
+      x += '</cols>';
+    }
+    x += '<sheetData>';
+    rows.forEach(function (row, ri) {
+      x += '<row r="' + (ri + 1) + '">';
+      (row || []).forEach(function (cell, ci) {
+        if (cell === null || cell === undefined || cell === '') return;
+        var ref = colName(ci) + (ri + 1);
+        var style = ri === 0 ? ' s="1"' : '';
+        if (typeof cell === 'number' && isFinite(cell)) x += '<c r="' + ref + '"' + style + '><v>' + cell + '</v></c>';
+        else x += '<c r="' + ref + '" t="inlineStr"' + style + '><is><t xml:space="preserve">' + xesc(cell) + '</t></is></c>';
+      });
+      x += '</row>';
+    });
+    x += '</sheetData></worksheet>';
+    return x;
+  }
+
+  function exportXLSX() {
+    var sheets = [
+      { name: '沿程明细', rows: streamSheet(), widths: [18, 11, 12, 9, 9, 9, 9, 9, 8, 9, 22] },
+      { name: '出水达标', rows: complianceSheet(), widths: [14, 10, 12, 12, 10] },
+      { name: '能耗与污泥', rows: energySheet(), widths: [22, 12, 14, 10] },
+      { name: '设备清单', rows: equipmentRows(), widths: [16, 20, 11, 10, 8, 9, 9, 12, 9, 9] },
+      { name: '参数表', rows: paramRows(), widths: [18, 22, 12, 10, 50] }
+    ];
+    var files = [];
+    var enc = new TextEncoder();
+    var put = function (name, str) { files.push({ name: name, data: enc.encode(str) }); };
+
+    put('[Content_Types].xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map(function (s, i) {
+        return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+      }).join('') + '</Types>');
+
+    put('_rels/.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+
+    put('xl/workbook.xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+      sheets.map(function (s, i) {
+        return '<sheet name="' + xesc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+      }).join('') + '</sheets></workbook>');
+
+    put('xl/_rels/workbook.xml.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map(function (s, i) {
+        return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>';
+      }).join('') +
+      '<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+
+    put('xl/styles.xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<fonts count="2"><font><sz val="11"/><name val="微软雅黑"/></font><font><b/><sz val="11"/><name val="微软雅黑"/></font></fonts>' +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+      '</styleSheet>');
+
+    sheets.forEach(function (s, i) {
+      put('xl/worksheets/sheet' + (i + 1) + '.xml', sheetXML(s.rows, s.widths));
+    });
+
+    download(zipStore(files), '污水处理模拟结果.xlsx');
+  }
+
+  /* ------------------------------------------------------------ 启动 */
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('tab')) tab = qs.get('tab');
+  if (qs.get('sel')) sel = qs.get('sel');
+  buildScenarios();
+  if (qs.get('sc') && SCENARIOS[qs.get('sc')]) {
+    scenario = qs.get('sc');
+    P = Object.assign({}, D, SCENARIOS[scenario].mods);
+    $('#scenario').value = scenario;
+    R = WW.simulate(P);
+  }
+  buildKPI();
+  buildDiagram();
+  buildPanel();
+  bind();
+  updateKPI();
+  updateDiagram();
+  updateAlerts();
+  renderTab();
+
+  var tb = $('#scenario');
+  if (tb && !qs.get('sc')) tb.value = 'design';
+  $$('#tabs button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+  renderTab();
+})();
+</script>
+</body>
+</html>
